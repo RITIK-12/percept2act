@@ -60,6 +60,20 @@ ROOT="$REPO/datasets/stage2_sort"
 RESUME=false
 [[ -d "$ROOT" ]] && RESUME=true
 
+# The rerun viewer behind --display_data is capped at 1 GiB and does NOT exit
+# with lerobot-record. A survivor from a previous take is already full, so the
+# next run blocks on "Sender has been blocked for over 5 seconds" and stalls the
+# recording loop. Clear any stale one before starting.
+if pgrep -f "rerun --port" >/dev/null 2>&1; then
+  echo "clearing a stale rerun viewer from a previous take..."
+  pkill -f "rerun --port" 2>/dev/null || true
+  sleep 2
+fi
+
+# Set DISPLAY_DATA=false to record without the live camera view. Slightly less
+# comfortable, but immune to the viewer stalling mid-episode.
+DISPLAY_DATA="${DISPLAY_DATA:-true}"
+
 echo "STAGE 2 · class=$CLASS · $N episodes · resume=$RESUME"
 echo "  instruction : \"$TASK\""
 echo "  destination : $PLATE plate"
@@ -106,7 +120,7 @@ lerobot-record \
   --dataset.reset_time_s=10 \
   --dataset.push_to_hub=false \
   --resume="$RESUME" \
-  --display_data=true \
+  --display_data="$DISPLAY_DATA" \
   "${@:3}"
 
 echo
