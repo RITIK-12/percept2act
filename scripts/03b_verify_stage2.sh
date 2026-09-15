@@ -12,28 +12,26 @@ root = Path("$REPO/datasets/stage2_sort")
 if not root.exists():
     sys.exit("no stage2_sort dataset yet")
 
-tasks_file = root / "meta" / "tasks.jsonl"
-eps_file   = root / "meta" / "episodes.jsonl"
-if tasks_file.exists():
-    tasks = [json.loads(l) for l in tasks_file.read_text().splitlines() if l.strip()]
-    print("task strings in dataset:")
-    for t in tasks:
-        print("  ", t)
-if eps_file.exists():
-    eps = [json.loads(l) for l in eps_file.read_text().splitlines() if l.strip()]
-    counts = collections.Counter(
-        tuple(e.get("tasks", [])) if isinstance(e.get("tasks"), list) else (e.get("tasks"),)
-        for e in eps
-    )
-    print(f"\n{len(eps)} episodes total:")
-    for k, v in counts.items():
-        print(f"  {v:>3}  {k}")
-    if len(counts) < 2:
-        print("\n!! only one instruction present — record the other class before training")
-    else:
-        lo, hi = min(counts.values()), max(counts.values())
-        if hi > 2 * lo:
-            print(f"\n!! unbalanced ({lo} vs {hi}) — record more of the smaller class")
-        else:
-            print("\nBalance looks fine.")
+import pandas as pd
+# --resume writes NEW chunk files, so every check must glob all of them. Reading
+# only file-000 reports half the dataset and looks like the second class is
+# missing entirely.
+eps = pd.concat([pd.read_parquet(p) for p in sorted(root.glob("meta/episodes/**/*.parquet"))])
+counts = collections.Counter(
+    (list(r["tasks"])[0] if len(r["tasks"]) else "??") for _, r in eps.iterrows()
+)
+print(f"{len(eps)} episodes:")
+for _, r in eps.sort_values("episode_index").iterrows():
+    task = list(r["tasks"])[0] if len(r["tasks"]) else "??"
+    print(f"  ep {r['episode_index']:>2}  {r['length']:>4} frames  {task!r}")
+
+print("\nbalance:")
+for k, v in sorted(counts.items()):
+    print(f"  {v:>3}  {k!r}")
+
+if len(counts) < 2:
+    print("\n!! only one instruction present -- record the other class before training")
+else:
+    lo, hi = min(counts.values()), max(counts.values())
+    print("\nBalance looks fine." if hi <= 2 * lo else f"\n!! unbalanced ({lo} vs {hi})")
 PY

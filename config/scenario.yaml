@@ -56,7 +56,7 @@ cameras:
     width: 640
     height: 480
     fps: 30
-    exposure: 60            # [TUNED]
+    exposure: 150            # [TUNED]
     brightness: 32            # [TUNED]
   overhead:
     kind: realsense
@@ -160,8 +160,8 @@ replay:
   # 0-based in the order they were recorded. Check with:
   #   bash scripts/03b_verify_stage2.sh
   episodes:
-    defective: 0     # recorded first -> coral plate
-    good: 1          # recorded second -> blue plate
+    defective: 2     # coral plate. eps 0-4 are coral; 2 is a clean 387-frame take
+    good: 6          # blue plate.  eps 5-9 are blue;  6 is a clean 402-frame take
 
 runtime:
   # Single process, in the `hack_lerobot` conda env -- it is the one env that has
