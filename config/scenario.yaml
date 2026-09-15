@@ -56,6 +56,8 @@ cameras:
     width: 640
     height: 480
     fps: 30
+    exposure: 60            # [TUNED]
+    brightness: 32            # [TUNED]
   overhead:
     kind: realsense
     serial: "243622062278"           # [ASSIGNED]
