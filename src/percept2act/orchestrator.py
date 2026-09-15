@@ -98,6 +98,22 @@ class Orchestrator:
 
     # -- DETECT + REASON ------------------------------------------------------
 
+    def goto_inspect_pose(self) -> None:
+        """Return the arm to the fixed inspect pose.
+
+        The wrist camera moves with the arm, so scores are only comparable
+        between bricks if every inspection happens from the same pose. Without
+        this the detector would be comparing a close-up against a wide shot and
+        calling the difference an anomaly.
+        """
+        pose = self.scn.get("inspection_station.pose")
+        if pose is None or self.robot is None:
+            return
+        from percept2act.motion import ramp_to
+
+        with self.latency.measure("act.goto_inspect", "CPU"):
+            ramp_to(self.robot, pose, float(self.scn.get("replay.ramp_seconds", 2.0)))
+
     def inspect(self) -> tuple[Verdict, Any]:
         """Grab a frame and score the brick at the inspection crop."""
         with self.latency.measure("perceive.capture", "CPU"):
@@ -155,6 +171,7 @@ class Orchestrator:
             log.info("--- brick %d/%d ---", index, limit)
 
             with self.latency.measure("loop.brick_total", "CPU"):
+                self.goto_inspect_pose()
                 verdict, reinspections = self.resolve_verdict()
 
                 brick_class = verdict.verdict

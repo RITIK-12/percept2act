@@ -93,6 +93,12 @@ cameras:
 # Fixing pose + scale + lighting here is what makes a memory-bank anomaly
 # model viable on ~50 normals.
 inspection_station:
+  # Fixed pose the arm returns to before every inspection, so the wrist
+  # camera sees the brick from the same angle and distance each time --
+  # which is what makes a memory-bank model like PatchCore comparable at
+  # all. Median first-frame pose across all 30 recorded episodes, so the
+  # ramp to it is short from wherever the arm ends up.
+  pose: [-5.63, -1.93, 3.60, 100.44, -42.24, 25.91]
   # Region of the WRIST camera frame that Anomalib scores, measured from
   # frame 0 of a recorded episode (i.e. the arm at its start pose). Bricks
   # fill it and the marker marks are resolvable inside it.
@@ -157,12 +163,16 @@ openvino:
 # ---------------------------------------------------------------------------
 replay:
   dataset_root: datasets/stage2_sort
+  # Teleop start poses drift ~20 degrees episode to episode, so blind
+  # playback from wherever the arm happens to be would not line up with the
+  # recorded trajectory. Ramp into the episode's own first pose first.
+  ramp_seconds: 2.0
   # Which recorded episode to play back per verdict. Episode indices are
   # 0-based in the order they were recorded. Check with:
   #   bash scripts/03b_verify_stage2.sh
   episodes:
-    defective: 2     # coral plate. eps 0-4 are coral; 2 is a clean 387-frame take
-    good: 6          # blue plate.  eps 5-9 are blue;  6 is a clean 402-frame take
+    defective: 16    # coral. single-brick take, 366 frames
+    good: 26         # blue.  single-brick take, 368 frames
 
 runtime:
   # Single process, in the `hack_lerobot` conda env -- it is the one env that has

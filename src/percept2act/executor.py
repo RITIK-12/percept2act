@@ -80,58 +80,59 @@ class ReplayExecutor:
         self.robot = robot
         self.device = "CPU"
         self.fps = int(scn.require("policies.control_fps"))
-        self.dataset = self._load_dataset(scn)
+        self.root = Path(scn.abs_path("replay.dataset_root"))
+        self.ramp_seconds = float(scn.get("replay.ramp_seconds", 2.0))
         self.episodes = episodes or dict(scn.get("replay.episodes") or {})
         if not self.episodes:
             raise ValueError(
                 "no replay episodes configured. Add to config/scenario.yaml:\n"
                 "  replay:\n    episodes:\n      good: 0\n      defective: 1"
             )
-        self._cache: dict[int, list[dict]] = {}
-
-    @staticmethod
-    def _load_dataset(scn: Scenario):
-        from lerobot.datasets.lerobot_dataset import LeRobotDataset
-
-        root = scn.abs_path("policies.stage2_sort.export_dir").parent.parent / "datasets" / "stage2_sort"
-        root = Path(scn.get("replay.dataset_root") or root)
-        repo_id = str(scn.require("policies.stage2_sort.dataset_repo_id"))
-        if not root.exists():
+        if not self.root.exists():
             raise FileNotFoundError(
-                f"no recorded dataset at {root}\n"
-                "  record two demos first:\n"
-                "    bash scripts/03_record_stage2.sh defective 1\n"
-                "    bash scripts/03_record_stage2.sh good 1"
+                f"no recorded dataset at {self.root}\n"
+                "  record demos first:\n"
+                "    bash scripts/03_record_stage2.sh coral 5\n"
+                "    bash scripts/03_record_stage2.sh blue 5"
             )
-        return LeRobotDataset(repo_id, root=root)
+        self._cache: dict[int, np.ndarray] = {}
 
-    def _frames(self, episode: int) -> list[dict]:
-        """Extract the action sequence for one episode, once, then cache it."""
-        if episode in self._cache:
-            return self._cache[episode]
+    def _frames(self, episode: int) -> np.ndarray:
+        """Action sequence for one episode, read straight from parquet and cached.
 
-        idx = self.dataset.episode_data_index
-        start, end = int(idx["from"][episode]), int(idx["to"][episode])
-        frames = [self.dataset[i] for i in range(start, end)]
-        self._cache[episode] = frames
-        log.info("loaded replay episode %d: %d frames", episode, len(frames))
-        return frames
+        Reading the parquet rather than going through LeRobotDataset avoids
+        decoding the episode's video, which is irrelevant here -- playback only
+        needs joint targets.
+        """
+        if episode not in self._cache:
+            from percept2act.motion import episode_frames
+
+            self._cache[episode] = episode_frames(self.root, episode)
+            log.info("loaded replay episode %d: %d frames", episode, len(self._cache[episode]))
+        return self._cache[episode]
 
     def execute(self, brick_class: str, instruction: str) -> int:
         episode = self.episodes.get(brick_class)
         if episode is None:
             raise KeyError(f"no replay episode configured for class {brick_class!r}")
 
+        from percept2act.motion import ramp_to
+
         plate = self.scn.plate_for_class(brick_class)
         log.info("[replay] episode %d -> %s plate  (%r)", episode, plate, instruction)
 
         frames = self._frames(episode)
         names = list(self.robot.action_features)
-        period = 1.0 / self.fps
 
-        for step, frame in enumerate(frames, 1):
+        # Teleop start poses vary by ~20 degrees between episodes, so playing a
+        # trajectory from wherever the arm currently sits would not line up with
+        # what was recorded. Ramp into the episode's own first pose first.
+        ramp_steps = ramp_to(self.robot, frames[0], self.ramp_seconds, names)
+        log.info("  ramped into start pose in %d steps", ramp_steps)
+
+        period = 1.0 / self.fps
+        for values in frames:
             t0 = time.perf_counter()
-            values = np.asarray(frame["action"]).reshape(-1)
             self.robot.send_action({n: float(v) for n, v in zip(names, values)})
             elapsed = time.perf_counter() - t0
             if elapsed < period:
