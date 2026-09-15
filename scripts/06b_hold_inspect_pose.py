@@ -53,12 +53,27 @@ def first_frame_action(scn: Scenario, episode: int) -> np.ndarray:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--episode", type=int, default=0)
+    ap.add_argument(
+        "--from-config",
+        action="store_true",
+        help="use inspection_station.pose (set with 06c) instead of an episode's first frame",
+    )
     ap.add_argument("--show", action="store_true", help="print the pose and exit")
     ap.add_argument("--settle", type=float, default=2.0, help="seconds to reach the pose")
     args = ap.parse_args()
 
     scn = Scenario.load()
-    target = first_frame_action(scn, args.episode)
+    if args.from_config:
+        pose_cfg = scn.get("inspection_station.pose")
+        if pose_cfg is None:
+            raise SystemExit(
+                "inspection_station.pose is not set.\n"
+                "  Set it by teleoperating to a good pose:\n"
+                "    python scripts/06c_set_inspect_pose.py"
+            )
+        target = np.asarray(pose_cfg, dtype=float)
+    else:
+        target = first_frame_action(scn, args.episode)
 
     from lerobot.robots.so_follower import SO101Follower, SO101FollowerConfig
 
@@ -75,7 +90,8 @@ def main() -> int:
     try:
         names = list(robot.action_features)
         pose = {n: float(v) for n, v in zip(names, target)}
-        print(f"inspect pose (episode {args.episode} frame 0):")
+        src = "config" if args.from_config else f"episode {args.episode} frame 0"
+        print(f"inspect pose ({src}):")
         for n, v in pose.items():
             print(f"  {n:<16} {v:8.2f}")
         if args.show:
