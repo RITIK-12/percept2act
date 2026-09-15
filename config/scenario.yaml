@@ -73,15 +73,21 @@ cameras:
     fps: 30
     use_depth: false
 
-  # Which streams feed which consumer. Keeping `inspect` out of the policy
-  # observation space means the detector can be retuned without retraining
-  # either policy.
-  # Start with `front` only: it already sees the workspace, so recording can
-  # begin with no physical rig changes. Add `overhead` once the boom is aimed
-  # at the mat and `wrist` once its lens is focused -- but note that ADDING a
-  # camera after recording invalidates the dataset, so decide before you record.
-  policy_inputs: [front]
-  detector_input: front
+  # The gripper camera serves BOTH consumers, which is why it is the only one
+  # enabled:
+  #   * policy  -- it sees the gripper-to-brick relationship, which is where
+  #     pick-and-place policies actually fail. The standard LeRobot SO-101
+  #     setup is a wrist camera for exactly this reason.
+  #   * detector -- the defect is marker marks on the TOP faces of the studs.
+  #     Only a top-down close-up resolves them. The `front` tripod camera
+  #     views bricks side-on from across the table at a few dozen pixels, so
+  #     the defect signal is simply not in its image.
+  #
+  # It moves with the arm, so the detector frame must be grabbed at a
+  # consistent home pose hovering over the pickup spot. Fixed pose and scale
+  # is also what makes a memory-bank model like PatchCore accurate.
+  policy_inputs: [wrist]
+  detector_input: wrist
 
 # The fixed spot on the mat where ACT presents each brick for inspection.
 # Fixing pose + scale + lighting here is what makes a memory-bank anomaly
