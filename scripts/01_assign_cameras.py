@@ -136,14 +136,23 @@ def _patch_yaml(edits: dict[str, str]) -> None:
 
 
 def cmd_assign(pairs: list[str]) -> int:
+    # Roles come from the config rather than a hardcoded list, so renaming a
+    # camera role in scenario.yaml does not silently break this command.
+    scn = Scenario.load()
+    valid = {
+        role
+        for role, entry in (scn.get("cameras") or {}).items()
+        if isinstance(entry, dict) and entry.get("kind") == "realsense"
+    }
+
     edits: dict[str, str] = {}
     for pair in pairs:
         if "=" not in pair:
             print(f"! expected role=serial, got {pair!r}")
             return 2
         role, serial = pair.split("=", 1)
-        if role not in {"overhead", "inspect"}:
-            print(f"! role must be overhead or inspect, got {role!r}")
+        if role not in valid:
+            print(f"! role must be one of {sorted(valid)}, got {role!r}")
             return 2
         edits[role] = serial.strip()
 
@@ -156,9 +165,10 @@ def cmd_assign(pairs: list[str]) -> int:
     _patch_yaml(edits)
     print(f"Updated config/scenario.yaml: {edits}")
 
-    scn = Scenario.load()
+    # Re-read from disk to prove the line-oriented patch actually landed, rather
+    # than reporting success from the in-memory dict we just built.
     for role in edits:
-        print(f"  cameras.{role}.serial -> {scn.require(f'cameras.{role}.serial')}")
+        print(f"  cameras.{role}.serial -> {Scenario.load().require(f'cameras.{role}.serial')}")
     return 0
 
 

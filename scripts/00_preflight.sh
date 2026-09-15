@@ -67,12 +67,18 @@ CAL="$HOME/.cache/huggingface/lerobot/calibration"
 echo "=== 5. cameras ==="
 n_rs=$("$RUNTIME_PY" -c "import pyrealsense2 as rs;print(len(rs.context().query_devices()))" 2>/dev/null || echo 0)
 [[ "$n_rs" -ge 2 ]] && ok "$n_rs RealSense cameras" || bad "expected 2 RealSense, found $n_rs"
-if "$RUNTIME_PY" -c "
+if roles_in_use=$("$RUNTIME_PY" -c "
 import sys; sys.path.insert(0,'$REPO/src')
 from percept2act.config import Scenario
 s=Scenario.load()
-for r in ('overhead','inspect'): s.require(f'cameras.{r}.serial')
-" 2>/dev/null; then ok "camera roles assigned in scenario.yaml"
+# Validate only the roles actually in use, so adding or dropping a camera from
+# policy_inputs does not require editing this check.
+roles = set(s.require('cameras.policy_inputs')) | {s.require('cameras.detector_input')}
+for r in sorted(roles):
+    if s.require(f'cameras.{r}.kind') == 'realsense':
+        s.require(f'cameras.{r}.serial')
+print(' '.join(sorted(roles)))
+" 2>/dev/null); then ok "camera roles assigned: ${roles_in_use}"
 else bad "camera roles unassigned — run scripts/01_assign_cameras.py --preview"; fi
 
 # The Sonix wrist module loses its exposure settings on replug and defaults to
