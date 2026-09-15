@@ -20,8 +20,15 @@ PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 ARGS="$REPO/src/percept2act/lerobot_args.py"
 export PATH="$HOME/miniforge3/envs/hack_lerobot/bin:$PATH"
 
-CLASS="${1:?usage: 03_record_stage2.sh <good|defective> [num_episodes]}"
-case "$CLASS" in good|defective) ;; *) echo "class must be good or defective"; exit 2;; esac
+CLASS="${1:?usage: 03_record_stage2.sh <coral|blue> [num_episodes]}"
+# Plate names are accepted as aliases, and are the clearer way to think about
+# it: this argument selects the DESTINATION, never the brick's condition.
+case "$CLASS" in
+  coral)     CLASS=defective ;;
+  blue)      CLASS=good ;;
+  good|defective) ;;
+  *) echo "argument must be coral, blue, good or defective"; exit 2 ;;
+esac
 
 N="${2:-$("$PY" -c "
 import sys;sys.path.insert(0,'$REPO/src')
