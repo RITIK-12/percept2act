@@ -80,6 +80,10 @@ def main() -> int:
     ap.add_argument("--bricks", type=int, default=0, help="0 = run until Ctrl-C")
     ap.add_argument("--no-show", action="store_true", help="no live window")
     ap.add_argument("--settle", type=int, default=12, help="frames the scene must hold steady")
+    ap.add_argument(
+        "--delay", type=float, default=2.0,
+        help="seconds to hold the verdict on screen before the arm moves",
+    )
     ap.add_argument("--device", help="override detector device (NPU/GPU/CPU)")
     args = ap.parse_args()
 
@@ -145,13 +149,40 @@ def main() -> int:
                     f"  {instruction!r}"
                 )
 
+                # Hold the verdict on screen before moving. Gives you time to get
+                # your hand clear, and makes the decision readable to anyone
+                # watching instead of the arm just lurching.
+                if args.delay > 0:
+                    deadline = time.time() + args.delay
+                    while True:
+                        left = deadline - time.time()
+                        if left <= 0:
+                            break
+                        state["status"] = (
+                            f"{verdict.verdict.upper()} -> {plate} plate  |  moving in {left:0.1f}s"
+                        )
+                        if show:
+                            frame = orch.camera.read()
+                            if frame is not None:
+                                draw(frame, None, 0.0, 0, args.settle)
+                        else:
+                            time.sleep(0.05)
+
                 state["status"] = f"PLACING in {plate} plate"
                 if show:
-                    draw(orch.camera.read(), None, 0.0, 0, args.settle)
+                    frame = orch.camera.read()
+                    if frame is not None:
+                        draw(frame, None, 0.0, 0, args.settle)
                 steps = orch.place(brick_class)
                 sorted_count += 1
                 print(f"  done in {steps} steps  ({sorted_count} sorted)")
 
+                state["status"] = "returning to inspect pose"
+                state["verdict"] = None
+                if show:
+                    frame = orch.camera.read()
+                    if frame is not None:
+                        draw(frame, None, 0.0, 0, args.settle)
                 orch.goto_inspect_pose()
 
                 if args.bricks and sorted_count >= args.bricks:
