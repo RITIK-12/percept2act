@@ -96,6 +96,56 @@ class Orchestrator:
         self.camera = open_stream(scn, scn.require("cameras.detector_input"))
         self.max_bricks = int(scn.require("runtime.max_bricks_per_run"))
 
+    # -- PERCEIVE: waiting for a brick ----------------------------------------
+
+    def brick_fraction(self, patch: Any) -> float:
+        """Fraction of the crop that looks like a saturated brick, not bare mat.
+
+        Colour saturation rather than brightness: the mat is dark and matte, the
+        bricks are vividly coloured, so this separates them regardless of how
+        the venue lighting drifts.
+        """
+        import cv2
+
+        hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+        s, v = hsv[..., 1], hsv[..., 2]
+        return float(((s > 70) & (v > 60)).mean())
+
+    def wait_for_brick(
+        self,
+        present: bool = True,
+        stable_frames: int = 12,
+        timeout: float = 0.0,
+        on_frame=None,
+    ) -> bool:
+        """Block until the crop is occupied (or cleared) and has stopped changing.
+
+        `stable_frames` consecutive agreeing frames are required, which is what
+        stops the cycle firing on the hand that is still placing the brick.
+        Returns False on timeout.
+        """
+        threshold = float(self.scn.get("watch.brick_fraction", 0.025))
+        run = 0
+        started = time.time()
+
+        while True:
+            frame = self.camera.read()
+            if frame is None:
+                continue
+            x0, y0, x1, y1 = self.scn.require("inspection_station.crop")
+            patch = frame[y0:y1, x0:x1]
+            frac = self.brick_fraction(patch)
+            occupied = frac >= threshold
+
+            run = run + 1 if occupied == present else 0
+            if on_frame is not None:
+                on_frame(frame, patch, frac, run, stable_frames)
+            if run >= stable_frames:
+                return True
+            if timeout and time.time() - started > timeout:
+                return False
+            time.sleep(1.0 / 30)
+
     # -- DETECT + REASON ------------------------------------------------------
 
     def goto_inspect_pose(self) -> None:

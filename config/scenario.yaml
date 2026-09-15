@@ -178,6 +178,15 @@ replay:
     defective: 16    # coral. single-brick take, 366 frames
     good: 26         # blue.  single-brick take, 368 frames
 
+# ---------------------------------------------------------------------------
+# Live watcher (scripts/11_watch.py) -- autonomous sorting with no teleop.
+# ---------------------------------------------------------------------------
+watch:
+  # Fraction of the crop that must look like a saturated brick for the spot to
+  # count as occupied. Measured on the captured sets: empty crops sit below
+  # 2%, crops containing a brick run 3.7-13%.
+  brick_fraction: 0.025
+
 runtime:
   # Single process, in the `hack_lerobot` conda env -- it is the one env that has
   # lerobot, anomalib and openvino together, so the whole loop runs in one
