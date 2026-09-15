@@ -3,6 +3,35 @@
 Exact sequence. Every command is copy-paste runnable. Do them in order — each
 step's gate is the next step's precondition.
 
+> ## The two-hour path
+>
+> Build the **entire** workflow now with recorded demos driving the arm, then
+> swap in the trained policy when it is ready. The pipeline — cameras, Anomalib
+> on NPU, verdict, instruction string, latency logging — is identical either
+> way. Only the last hop changes, and it changes with one flag.
+>
+> | | Step | Time |
+> |---|---|---|
+> | 1 | [Preflight](#step-0--preflight--2-min) | 2 min |
+> | 2 | [Teleop check](#step-1--confirm-teleop-still-works--3-min) | 3 min |
+> | 3 | [Tape a fixed pickup spot, record 2 demos](#step-3--record-the-sorting-dataset--6075-min--critical-path) | 15 min |
+> | 4 | [Set the inspection crop, capture bricks](#step-5--capture-bricks-for-anomalib--20-min) | 20 min |
+> | 5 | [Fit PatchCore, export to OpenVINO](#step-6--fit-patchcore-and-export-to-openvino--15-min) | 15 min |
+> | 6 | [Benchmark NPU/GPU/CPU, set threshold](#step-7--validate-the-detector-and-pick-the-device--10-min) | 10 min |
+> | 7 | [Close the loop with `--executor replay`](#step-8--close-the-loop--30-min) | 25 min |
+> | 8 | [Demo prep](#step-9--demo-prep--30-min) | 20 min |
+>
+> Then, whenever training finishes:
+>
+> ```bash
+> python scripts/10_run_loop.py --executor policy --bricks 10
+> ```
+>
+> **The `replay` executor needs every brick to start at the same marked spot**,
+> because playback is blind. Tape that spot down before recording. It pays twice:
+> PatchCore also gets sharper when every brick is inspected at the same pose and
+> scale.
+
 **Architecture:** one brick at a time, camera → Anomalib → verdict → instruction
 string → SmolVLA → correct plate.
 
@@ -226,24 +255,37 @@ Three stages, so a failure is always localized.
 **8a — detector and reasoning only, arm untouched:**
 
 ```bash
-python scripts/10_run_loop.py --dry-run --bricks 5
+python scripts/10_run_loop.py --executor stub --bricks 5
 ```
 
 Watch each brick produce a score, a verdict, and the instruction it selects.
+Nothing moves. If this works, PERCEIVE, DETECT, REASON and the latency logging
+are all correct and any later failure is in the arm.
 
-**8b — one brick, robot live.** Keep a hand near the follower's power:
+**8b — one brick, arm live, replaying a recorded demo.** Keep a hand near the
+follower's power:
 
 ```bash
-python scripts/10_run_loop.py --bricks 1
+python scripts/10_run_loop.py --executor replay --bricks 1
 ```
+
+If the arm goes to the wrong plate, the episode indices in `replay.episodes` are
+swapped — check the order with `bash scripts/03b_verify_stage2.sh` and edit
+`config/scenario.yaml`.
 
 **8c — the full run:**
 
 ```bash
-python scripts/10_run_loop.py --bricks 14
+python scripts/10_run_loop.py --executor replay --bricks 10 --no-pause
 ```
 
 Prints a per-brick report and the stage/device/latency table.
+
+**8d — once SmolVLA has trained, one flag changes:**
+
+```bash
+python scripts/10_run_loop.py --executor policy --bricks 10
+```
 
 **Gate:** bricks land in the correct plates without a human touching the arm.
 

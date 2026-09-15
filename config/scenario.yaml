@@ -141,6 +141,20 @@ openvino:
   precision: FP16               # try INT8 via nncf once FP16 works
   log_latency: true
 
+# ---------------------------------------------------------------------------
+# Replay executor -- closes the loop with recorded demos instead of a trained
+# policy. Blind playback, so every brick must start at the same marked spot.
+# Swap to the `policy` executor once SmolVLA has trained; nothing else changes.
+# ---------------------------------------------------------------------------
+replay:
+  dataset_root: datasets/stage2_sort
+  # Which recorded episode to play back per verdict. Episode indices are
+  # 0-based in the order they were recorded. Check with:
+  #   bash scripts/03b_verify_stage2.sh
+  episodes:
+    defective: 0     # recorded first -> coral plate
+    good: 1          # recorded second -> blue plate
+
 runtime:
   # Single process, in the `hack_lerobot` conda env -- it is the one env that has
   # lerobot, anomalib and openvino together, so the whole loop runs in one

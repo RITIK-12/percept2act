@@ -25,6 +25,7 @@ from typing import Any
 from percept2act.cameras import grab_crop, open_stream
 from percept2act.config import Scenario
 from percept2act.detector import Detector, Verdict
+from percept2act.executor import StubExecutor
 from percept2act.latency import LatencyLog
 
 log = logging.getLogger(__name__)
@@ -76,12 +77,16 @@ class Orchestrator:
         self,
         scn: Scenario,
         robot: Any | None = None,
-        sorter: Any | None = None,
+        executor: Any | None = None,
         detector: Detector | None = None,
+        pause_between: bool = True,
     ):
         self.scn = scn
         self.robot = robot
-        self.sorter = sorter
+        # Defaults to the stub so the loop is always runnable, even with no arm
+        # connected and no policy trained.
+        self.executor = executor or StubExecutor(scn)
+        self.pause_between = pause_between
         self.latency = LatencyLog(
             scn.abs_path("runtime.latency_log"),
             enabled=bool(scn.get("openvino.log_latency", True)),
@@ -89,7 +94,6 @@ class Orchestrator:
         self.detector = detector or Detector(scn)
         self.detector.warmup()
         self.camera = open_stream(scn, scn.require("cameras.detector_input"))
-        self.max_steps = int(scn.require("policies.max_steps_per_stage"))
         self.max_bricks = int(scn.require("runtime.max_bricks_per_run"))
 
     # -- DETECT + REASON ------------------------------------------------------
@@ -132,20 +136,11 @@ class Orchestrator:
     # -- ACT ------------------------------------------------------------------
 
     def place(self, brick_class: str) -> int:
-        """Run the sorting policy under the instruction for `brick_class`."""
+        """Hand the instruction to whichever executor is plugged in."""
         instruction = self.scn.instruction_for_class(brick_class)
-        device = self.scn.device_for("stage2_sort")
 
-        if self.sorter is None or self.robot is None:
-            log.info("[dry-run] would execute: %r", instruction)
-            return 0
-
-        with self.latency.measure("act.sort_policy", device) as m:
-            steps = self.sorter.run_until_done(
-                robot=self.robot,
-                task=instruction,
-                max_steps=self.max_steps,
-            )
+        with self.latency.measure(f"act.{self.executor.name}", self.executor.device) as m:
+            steps = self.executor.execute(brick_class, instruction)
         m["instruction"] = instruction
         m["steps"] = steps
         return steps
@@ -191,7 +186,7 @@ class Orchestrator:
                 )
             )
 
-            if self.sorter is not None:
+            if self.pause_between and index < limit:
                 input("  reset the scene, then press Enter for the next brick... ")
 
         return report
