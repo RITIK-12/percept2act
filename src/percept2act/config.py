@@ -53,7 +53,7 @@ class Scenario:
         if isinstance(value, str) and value.startswith("TODO@"):
             raise ValueError(
                 f"{self.path}: '{dotted}' is still {value!r}.\n"
-                "  Run scripts/01_assign_cameras.py to fill in camera serials."
+                "  Run scripts/02_assign_cameras.py to fill in camera serials."
             )
         return value
 

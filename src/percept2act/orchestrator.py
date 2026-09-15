@@ -12,7 +12,7 @@ two English sentences, and the policy does the rest. That is the seam between
 the detector and the robot, and it is the thing to point at when explaining how
 defect output reaches the manipulation workflow.
 
-Run with scripts/10_run_loop.sh.
+Run with scripts/12_demo.py.
 """
 
 from __future__ import annotations

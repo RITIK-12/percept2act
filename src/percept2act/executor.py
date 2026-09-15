@@ -92,8 +92,8 @@ class ReplayExecutor:
             raise FileNotFoundError(
                 f"no recorded dataset at {self.root}\n"
                 "  record demos first:\n"
-                "    bash scripts/03_record_stage2.sh coral 5\n"
-                "    bash scripts/03_record_stage2.sh blue 5"
+                "    bash scripts/06_record.sh coral 5\n"
+                "    bash scripts/06_record.sh blue 5"
             )
         self._cache: dict[int, np.ndarray] = {}
 
@@ -182,7 +182,7 @@ class PolicyExecutor:
                 return found[-1]
         raise FileNotFoundError(
             f"no trained policy under {root}\n"
-            "  train it:  bash scripts/05_train.sh smolvla\n"
+            "  train it:  bash scripts/14_train_vla.sh smolvla\n"
             "  or run the loop with --executor replay in the meantime"
         )
 

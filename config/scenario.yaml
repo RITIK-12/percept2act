@@ -10,7 +10,6 @@ task:
   # The three instruction strings. These are the Anomalib -> SmolVLA seam:
   # the detector's verdict selects which string conditions the policy.
   instructions:
-    present:   "pick up the brick and place it in front of the camera"
     defective: "put the brick in the coral plate"
     good:      "put the brick in the blue plate"
 
@@ -49,7 +48,7 @@ arms:
 cameras:
   # [VERIFIED] 2x RealSense D415 + 1x Sonix UVC webcam present.
   # Which RealSense serial is overhead vs inspect is assigned by
-  # scripts/01_assign_cameras.py -- run it before recording.
+  # scripts/02_assign_cameras.py -- run it before recording.
   wrist:
     kind: opencv                # Sonix USB2.0_CAM1, mounted on the follower
     index_or_path: /dev/v4l/by-id/usb-Sonix_Technology_Co.__Ltd._USB2.0_CAM1_USB2.0_CAM1-video-index0
@@ -131,11 +130,6 @@ detector:
 # Policies — trained in Physical AI Studio, exported to OpenVINO IR.
 # ---------------------------------------------------------------------------
 policies:
-  stage1_present:
-    policy: act
-    dataset_repo_id: percept2act/stage1_present
-    episodes: 40
-    export_dir: experiments/act_present
   stage2_sort:
     policy: smolvla
     base_checkpoint: lerobot/smolvla_base
@@ -148,13 +142,12 @@ policies:
   control_fps: 30
 
 # ---------------------------------------------------------------------------
-# OpenVINO device placement. Measured in scripts/09_benchmark.py; the demo
+# OpenVINO device placement. Measured in scripts/11_benchmark.py; the demo
 # requires explaining each choice out loud.
 # ---------------------------------------------------------------------------
 openvino:
   devices:
     detector: NPU               # fixed shape, sustained -> NPU, frees CPU
-    stage1_present: NPU         # ACT is a small transformer, fits NPU well
     stage2_sort: GPU            # SmolVLA ~500M VLM, needs Arc iGPU throughput
     control: CPU                # IK, gripper checks, camera decode: latency-sensitive
   precision: FP16               # try INT8 via nncf once FP16 works
@@ -173,13 +166,13 @@ replay:
   ramp_seconds: 2.0
   # Which recorded episode to play back per verdict. Episode indices are
   # 0-based in the order they were recorded. Check with:
-  #   bash scripts/03b_verify_stage2.sh
+  #   bash scripts/07_verify_dataset.sh
   episodes:
     defective: 16    # coral. single-brick take, 366 frames
     good: 26         # blue.  single-brick take, 368 frames
 
 # ---------------------------------------------------------------------------
-# Live watcher (scripts/11_watch.py) -- autonomous sorting with no teleop.
+# Live watcher (scripts/12_demo.py) -- autonomous sorting with no teleop.
 # ---------------------------------------------------------------------------
 watch:
   # Fraction of the crop that must look like a saturated brick for the spot to

@@ -11,9 +11,9 @@ drift between images.
 
 Usage
 -----
-  python scripts/06b_hold_inspect_pose.py             # pose from episode 0
-  python scripts/06b_hold_inspect_pose.py --episode 2
-  python scripts/06b_hold_inspect_pose.py --show      # print the joint targets
+  python scripts/08_hold_pose.py             # pose from episode 0
+  python scripts/08_hold_pose.py --episode 2
+  python scripts/08_hold_pose.py --show      # print the joint targets
 
 Ctrl-C releases the arm. Run in the `hack_lerobot` env.
 """
@@ -69,7 +69,7 @@ def main() -> int:
             raise SystemExit(
                 "inspection_station.pose is not set.\n"
                 "  Set it by teleoperating to a good pose:\n"
-                "    python scripts/06c_set_inspect_pose.py"
+                "    python scripts/05_set_inspect_pose.py"
             )
         target = np.asarray(pose_cfg, dtype=float)
     else:
@@ -112,7 +112,7 @@ def main() -> int:
 
         print("\nHOLDING. The wrist camera is now at the inspect pose.")
         print("Capture in another terminal:")
-        print("  python scripts/06_capture_normals.py --class good --auto 50 --interval 1.0")
+        print("  python scripts/09_capture_bricks.py --class good --auto 50 --interval 1.0")
         print("\nCtrl-C here to release the arm.")
         while True:
             robot.send_action(pose)

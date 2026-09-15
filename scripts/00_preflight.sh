@@ -79,7 +79,7 @@ for r in sorted(roles):
         s.require(f'cameras.{r}.serial')
 print(' '.join(sorted(roles)))
 " 2>/dev/null); then ok "camera roles assigned: ${roles_in_use}"
-else bad "camera roles unassigned — run scripts/01_assign_cameras.py --preview"; fi
+else bad "camera roles unassigned — run scripts/02_assign_cameras.py --preview"; fi
 
 # The Sonix wrist module loses its exposure settings on replug and defaults to
 # blowing out. Re-apply and check we are not saturating.
@@ -92,7 +92,7 @@ if [[ -z "$WRIST" ]]; then
 elif [[ -e "$WRIST" ]]; then
   # Read BOTH tuned values from config. Hardcoding only the exposure left
   # brightness at its default of 0, which crushes the dark mat to black --
-  # exactly the state 01c_tune_exposure.py exists to avoid.
+  # exactly the state 04_tune_exposure.py exists to avoid.
   { read -r W_EXP; read -r W_BRI; } < <("$RUNTIME_PY" -c "
 import sys; sys.path.insert(0,'$REPO/src')
 from percept2act.config import Scenario

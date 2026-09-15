@@ -8,16 +8,16 @@ the Laplacian: twist the lens until the number PEAKS, then stop.
 Usage
 -----
   # focus the wrist lens -- watch SHARPNESS, turn the barrel until it maxes out
-  python scripts/01b_camera_focus.py --camera wrist
+  python scripts/03_camera_focus.py --camera wrist
 
   # aim the boom straight down at the mat
-  python scripts/01b_camera_focus.py --camera overhead
+  python scripts/03_camera_focus.py --camera overhead
 
   # frame the inspection station, with the configured crop drawn on
-  python scripts/01b_camera_focus.py --camera inspect --show-crop
+  python scripts/03_camera_focus.py --camera inspect --show-crop
 
   # no display available? write a frame + score to disk every second instead
-  python scripts/01b_camera_focus.py --camera wrist --headless
+  python scripts/03_camera_focus.py --camera wrist --headless
 
 Keys:  q = quit   s = save a snapshot
 Run in the `hack_lerobot` env.

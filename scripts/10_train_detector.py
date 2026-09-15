@@ -12,11 +12,11 @@ patch matching localizes well.
 
 Usage
 -----
-  python scripts/07_train_anomalib.py                  # fit + export FP16
-  python scripts/07_train_anomalib.py --int8           # additionally export INT8
-  python scripts/07_train_anomalib.py --skip-fit       # re-export an existing ckpt
+  python scripts/10_train_detector.py                  # fit + export FP16
+  python scripts/10_train_detector.py --int8           # additionally export INT8
+  python scripts/10_train_detector.py --skip-fit       # re-export an existing ckpt
 
-Then benchmark device placement:  python scripts/09_benchmark.py
+Then benchmark device placement:  python scripts/11_benchmark.py
 Run in the `hack_lerobot` env.
 """
 
@@ -94,7 +94,7 @@ def main() -> int:
     print(f"defects  : {n_abnormal:>4}  {defects}   (threshold tuning only)")
     if n_normal < 20:
         print("\n! Need at least ~20 normals (50 is better).")
-        print("  python scripts/06_capture_normals.py --class good --auto 60")
+        print("  python scripts/09_capture_bricks.py --class good --auto 60")
         return 1
 
     # Imported late: anomalib pulls in torch and timm, which takes a few seconds.
@@ -190,7 +190,7 @@ def main() -> int:
         )
     print(
         "\nThen sanity-check separation between good and damaged bricks:\n"
-        "  python scripts/09_benchmark.py --detector-only\n"
+        "  python scripts/11_benchmark.py --detector-only\n"
         "If the two score distributions overlap, widen detector.uncertainty_band\n"
         "rather than pretending the detector is confident."
     )

@@ -6,12 +6,11 @@
 # only teach it this specific pick-and-place.
 #
 # Usage:
-#   bash scripts/05_train.sh smolvla              # the sorting policy (main path)
-#   bash scripts/05_train.sh smolvla --dry-run    # print the command, run nothing
-#   bash scripts/05_train.sh act                  # optional stage-1 present policy
+#   bash scripts/14_train_vla.sh                      # fine-tune the sorting policy
+#   bash scripts/14_train_vla.sh smolvla --dry-run    # print the command, run nothing
 #
 # Extra flags pass straight through, e.g.:
-#   bash scripts/05_train.sh smolvla --steps=30000 --batch_size=32
+#   bash scripts/14_train_vla.sh smolvla --steps=30000 --batch_size=32
 #
 # Takes 45-120 min on the Arc iGPU. Run it in its own terminal and get on with
 # the detector while it trains -- the two are independent.
@@ -21,7 +20,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 export PATH="$HOME/miniforge3/envs/hack_lerobot/bin:$PATH"
 
-WHICH="${1:?usage: 05_train.sh <smolvla|act> [extra lerobot-train flags]}"
+WHICH="${1:-smolvla}"
 shift || true
 
 DRY=0
@@ -40,9 +39,6 @@ s = Scenario.load()
 if which == "smolvla":
     key, steps = "policies.stage2_sort", 20000
     root, out = "datasets/stage2_sort", "experiments/smolvla_sort"
-elif which == "act":
-    key, steps = "policies.stage1_present", 60000
-    root, out = "datasets/stage1_present", "experiments/act_present"
 else:
     sys.exit(f"unknown policy {which!r}")
 print(s.require(f"{key}.dataset_repo_id"), root, out, steps)
@@ -54,7 +50,7 @@ OUTPUT_DIR="$REPO/$OUT"
 
 if [[ ! -d "$DATASET_ROOT" ]]; then
   echo "No dataset at $DATASET_ROOT"
-  echo "Record it first:  bash scripts/03_record_stage2.sh good && bash scripts/03_record_stage2.sh defective"
+  echo "Record it first:  bash scripts/06_record.sh good && bash scripts/06_record.sh defective"
   exit 1
 fi
 
@@ -62,7 +58,7 @@ fi
 # instruction trains happily and then ignores the instruction at inference --
 # which looks exactly like "the VLA does not work" during the demo.
 if [[ "$WHICH" == "smolvla" ]]; then
-  bash "$REPO/scripts/03b_verify_stage2.sh" || true
+  bash "$REPO/scripts/07_verify_dataset.sh" || true
   echo
 fi
 

@@ -22,7 +22,7 @@ Keys
 
 Usage
 -----
-  python scripts/06c_set_inspect_pose.py
+  python scripts/05_set_inspect_pose.py
 
 Put ONE brick where it will sit during the demo before you start.
 Run in the `hack_lerobot` env.
@@ -185,8 +185,8 @@ def main() -> int:
     if saved and not args.no_save:
         print(
             "\nNext: hold this pose and capture normals.\n"
-            "  terminal 1:  python scripts/06b_hold_inspect_pose.py --from-config\n"
-            "  terminal 2:  python scripts/06_capture_normals.py --class good --auto 50"
+            "  terminal 1:  python scripts/08_hold_pose.py --from-config\n"
+            "  terminal 2:  python scripts/09_capture_bricks.py --class good --auto 50"
         )
     return 0 if saved else 1
 

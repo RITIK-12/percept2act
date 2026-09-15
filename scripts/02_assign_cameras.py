@@ -9,13 +9,13 @@ into config/scenario.yaml.
 Usage
 -----
   # 1. capture previews from every camera it can find
-  python scripts/01_assign_cameras.py --preview
+  python scripts/02_assign_cameras.py --preview
 
   # 2. look at experiments/camera_preview/*.png, then commit the assignment
-  python scripts/01_assign_cameras.py --assign overhead=<serial> inspect=<serial>
+  python scripts/02_assign_cameras.py --assign overhead=<serial> inspect=<serial>
 
   # 3. once bricks are staged at the station, tune the inspection crop
-  python scripts/01_assign_cameras.py --tune-crop 180,120,460,360
+  python scripts/02_assign_cameras.py --tune-crop 180,120,460,360
 
 Run in the `hack_lerobot` env (it has pyrealsense2).
 """
@@ -106,7 +106,7 @@ def cmd_preview(scn: Scenario) -> int:
         "and sees the plates and the brick pile. The TRIPOD camera looks forward\n"
         "across the mat at roughly brick height.\n\n"
         "Then run:\n"
-        "  python scripts/01_assign_cameras.py --assign overhead=<serial> inspect=<serial>"
+        "  python scripts/02_assign_cameras.py --assign overhead=<serial> inspect=<serial>"
     )
     return 0
 

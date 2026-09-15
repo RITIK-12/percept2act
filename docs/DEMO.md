@@ -109,7 +109,7 @@ is visible in the 10× gap. It simply does not matter at this duty cycle.
 ## Reproducing these numbers
 
 ```bash
-python scripts/09_benchmark.py --iters 30
+python scripts/11_benchmark.py --iters 30
 ```
 
 Runs the device sweep and re-scores every captured crop, reporting separation

@@ -10,10 +10,10 @@ places it in the corresponding plate, then goes back to watching.
 
 Usage
 -----
-  python scripts/11_watch.py                    # replay executor, live window
-  python scripts/11_watch.py --executor stub    # rehearse, arm never moves
-  python scripts/11_watch.py --no-show          # headless
-  python scripts/11_watch.py --bricks 5         # stop after 5
+  python scripts/12_demo.py                    # replay executor, live window
+  python scripts/12_demo.py --executor stub    # rehearse, arm never moves
+  python scripts/12_demo.py --no-show          # headless
+  python scripts/12_demo.py --bricks 5         # stop after 5
 
 Ctrl-C to stop. Run in the `hack_lerobot` env.
 

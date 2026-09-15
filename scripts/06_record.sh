@@ -8,8 +8,8 @@
 # verdict picks the string and the same policy routes the brick.
 #
 # Usage:
-#   bash scripts/03_record_stage2.sh good      [n]   # -> blue plate
-#   bash scripts/03_record_stage2.sh defective [n]   # -> coral plate
+#   bash scripts/06_record.sh good      [n]   # -> blue plate
+#   bash scripts/06_record.sh defective [n]   # -> coral plate
 #
 # Record BOTH classes. Roughly equal counts. Order does not matter; the second
 # invocation appends via --resume.
@@ -20,7 +20,7 @@ PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 ARGS="$REPO/src/percept2act/lerobot_args.py"
 export PATH="$HOME/miniforge3/envs/hack_lerobot/bin:$PATH"
 
-CLASS="${1:?usage: 03_record_stage2.sh <coral|blue> [num_episodes]}"
+CLASS="${1:?usage: 06_record.sh <coral|blue> [num_episodes]}"
 # Plate names are accepted as aliases, and are the clearer way to think about
 # it: this argument selects the DESTINATION, never the brick's condition.
 case "$CLASS" in
@@ -126,4 +126,4 @@ lerobot-record \
 echo
 echo "Recorded $N '$CLASS' episodes."
 echo "When BOTH classes are done, verify both task strings are present:"
-echo "  bash scripts/03b_verify_stage2.sh"
+echo "  bash scripts/07_verify_dataset.sh"

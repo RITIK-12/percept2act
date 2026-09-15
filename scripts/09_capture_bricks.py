@@ -13,13 +13,13 @@ between a detector that works and one that guesses.
 Usage
 -----
   # live window, SPACE to capture a good brick, reposition, repeat
-  python scripts/06_capture_normals.py --class good
+  python scripts/09_capture_bricks.py --class good
 
   # 60 automatic captures, one per second -- slide the brick around while it runs
-  python scripts/06_capture_normals.py --class good --auto 60 --interval 1.0
+  python scripts/09_capture_bricks.py --class good --auto 60 --interval 1.0
 
   # a few damaged ones for threshold tuning
-  python scripts/06_capture_normals.py --class defective --auto 15
+  python scripts/09_capture_bricks.py --class defective --auto 15
 
 Keys:  SPACE = capture   c = re-show the crop box   q = done
 Run in the `hack_lerobot` env.
@@ -125,7 +125,7 @@ def main() -> int:
     if args.cls == "good" and total < 30:
         print("! fewer than 30 normals -- PatchCore will be unreliable. Capture more.")
     elif args.cls == "good":
-        print("Next:  python scripts/07_train_anomalib.py")
+        print("Next:  python scripts/10_train_detector.py")
     return 0
 
 

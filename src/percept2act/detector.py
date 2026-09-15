@@ -74,7 +74,7 @@ class Detector:
         if xml is None:
             raise FileNotFoundError(
                 f"no OpenVINO IR under {root}. Train the detector first:\n"
-                "  python scripts/07_train_anomalib.py"
+                "  python scripts/10_train_detector.py"
             )
         return xml
 

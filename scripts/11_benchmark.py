@@ -11,9 +11,9 @@ Produces the two things the demo needs:
 
 Usage
 -----
-  python scripts/09_benchmark.py                    # latency on all devices
-  python scripts/09_benchmark.py --detector-only    # score separation only
-  python scripts/09_benchmark.py --iters 100
+  python scripts/11_benchmark.py                    # latency on all devices
+  python scripts/11_benchmark.py --detector-only    # score separation only
+  python scripts/11_benchmark.py --iters 100
 
 Run in the `hack_lerobot` env.
 """
@@ -103,7 +103,7 @@ def check_separation(scn: Scenario) -> None:
     defects = load_set(REPO / str(scn.require("detector.defects_dir")))
     print(f"\nscoring {len(normals)} normals and {len(defects)} defects\n")
     if not normals:
-        print("no normals captured yet -- run scripts/06_capture_normals.py")
+        print("no normals captured yet -- run scripts/09_capture_bricks.py")
         return
 
     det = Detector(scn)
@@ -128,7 +128,7 @@ def check_separation(scn: Scenario) -> None:
     if not bad:
         print(
             "\nNo defective samples, so the threshold is unvalidated. Capture a few:\n"
-            "  python scripts/06_capture_normals.py --class defective --auto 15"
+            "  python scripts/09_capture_bricks.py --class defective --auto 15"
         )
         return
 

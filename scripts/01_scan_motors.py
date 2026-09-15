@@ -15,8 +15,8 @@ jack (not the USB), wait 5 seconds, plug it back in.
 
 Usage
 -----
-  python scripts/00b_scan_motors.py                # follower
-  python scripts/00b_scan_motors.py --arm leader
+  python scripts/01_scan_motors.py                # follower
+  python scripts/01_scan_motors.py --arm leader
 
 Run in the `hack_lerobot` env.
 """

@@ -12,9 +12,9 @@ Scoring balances three things a policy input needs:
 
 Usage
 -----
-  python scripts/01c_tune_exposure.py                 # tune the wrist cam
-  python scripts/01c_tune_exposure.py --camera front  # any UVC camera role
-  python scripts/01c_tune_exposure.py --no-save       # report only
+  python scripts/04_tune_exposure.py                 # tune the wrist cam
+  python scripts/04_tune_exposure.py --camera front  # any UVC camera role
+  python scripts/04_tune_exposure.py --no-save       # report only
 
 Point the camera at the actual workspace first -- it tunes for what it sees.
 """

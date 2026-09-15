@@ -6,9 +6,9 @@
 # gives you live camera feeds while you teleoperate.
 #
 # Usage:
-#   bash scripts/04_start_studio.sh backend   # terminal 1
-#   bash scripts/04_start_studio.sh ui        # terminal 2
-#   bash scripts/04_start_studio.sh check     # is it up?
+#   bash scripts/13_start_studio.sh backend   # terminal 1
+#   bash scripts/13_start_studio.sh ui        # terminal 2
+#   bash scripts/13_start_studio.sh check     # is it up?
 #
 # Then open http://localhost:5173
 #
