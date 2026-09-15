@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Local reference material — not tracked
+*.pdf
+
+# Setup photos / camera captures
+*.jpg
+*.jpeg
+*.heic
+*.webp
+*.png
+
+# ...but allow committed diagrams and docs assets
+!docs/**/*.png
+!docs/**/*.jpg

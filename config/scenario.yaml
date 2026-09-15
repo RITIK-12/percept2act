@@ -1,0 +1,84 @@
+# Scenario configuration.
+#
+# Everything the organizers reveal at Challenge Day kickoff belongs in THIS file.
+# If you find yourself editing Python to accommodate the reveal, stop and add a
+# key here instead.
+#
+# Values marked TODO@KICKOFF are unknown until the challenge starts.
+
+task:
+  # TODO@KICKOFF — the instruction handed to the VLA layer.
+  instruction: >
+    Inspect each LEGO brick. If it is defective, place it in the coral plate.
+    If it is good, place it in the blue plate.
+
+  # TODO@KICKOFF — what actually counts as a defect.
+  # Drives which Anomalib model and threshold make sense.
+  defect_definition: "unknown until kickoff"
+
+classes:
+  good:
+    plate: blue
+  defective:
+    plate: coral
+  # Detections inside the uncertainty band land here rather than being guessed.
+  unsure:
+    plate: null          # null => hold position / re-inspect instead of placing
+    behavior: reinspect  # reinspect | set_aside | hold
+
+cameras:
+  # Prefer stable by-id paths — /dev/videoN indices reshuffle across reboots.
+  overhead:
+    device: /dev/v4l/by-id/TODO      # boom-mounted, looks down at the mat
+    role: localization
+    resolution: [1920, 1080]
+  inspect:
+    device: /dev/v4l/by-id/TODO      # tripod behind mat, faces workspace
+    role: defect_inspection
+    resolution: [1920, 1080]
+
+arms:
+  follower:                # LEFT arm — has the gripper, does all manipulation
+    port: /dev/ttyACM0     # TODO: confirm in Phase 1
+    has_gripper: true
+  leader:                  # RIGHT arm — handle only, teleop input device
+    port: /dev/ttyACM1     # TODO: confirm in Phase 1
+    has_gripper: false
+
+# Robot-frame poses, filled during Phase 1. Units: metres, radians.
+poses:
+  home: null
+  retreat: null
+  plate_blue: null
+  plate_coral: null
+  unsure_position: null
+
+motion:
+  approach_height: 0.08    # metres above the brick before descending
+  grasp_height: 0.015      # gripper closes at this height
+  lift_height: 0.10        # clearance while traversing to a plate
+  grasp_retries: 1         # retry once on a failed grasp, then skip the brick
+
+perception:
+  # Classical segmentation for localization — bright bricks on a dark matte mat.
+  # Re-tune under the actual demo lighting; do not trust values from elsewhere.
+  hsv_bounds:
+    saturation_min: 90
+    value_min: 60
+  blob_area_px: [800, 20000]   # rejects the plates, the mat edge, and hands
+
+  anomaly:
+    model: padim               # padim | patchcore — both fit on normals only
+    threshold: 0.5             # TODO@KICKOFF — tune on a held-out set
+    # Scores within +/- this of the threshold are routed to `unsure`.
+    uncertainty_band: 0.08
+
+openvino:
+  # Starting placement. Measure in Phase 6, then adjust with evidence.
+  devices:
+    anomaly_detection: NPU
+    heavy_vision: GPU
+    segmentation: CPU
+    control: CPU
+  precision: FP16              # try INT8 in Phase 6, keep only if accuracy holds
+  log_latency: true            # required — placement must be explained live
