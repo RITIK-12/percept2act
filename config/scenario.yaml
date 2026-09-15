@@ -98,11 +98,11 @@ inspection_station:
   # which is what makes a memory-bank model like PatchCore comparable at
   # all. Median first-frame pose across all 30 recorded episodes, so the
   # ramp to it is short from wherever the arm ends up.
-  pose: [-5.63, -1.93, 3.60, 100.44, -42.24, 25.91]
+  pose: [-1.54, -37.76, 9.10, 99.82, -80.48, 21.01]   # [TELEOP-SET]
   # Region of the WRIST camera frame that Anomalib scores, measured from
   # frame 0 of a recorded episode (i.e. the arm at its start pose). Bricks
   # fill it and the marker marks are resolvable inside it.
-  crop: [80, 60, 320, 300]      # [x0, y0, x1, y1] -- 240x240
+  crop: [72, 52, 328, 308]      # 256x256 -- matches detector.input_size, so NO resampling
 
 # ---------------------------------------------------------------------------
 # Detector — Anomalib. Normal-only training; no defective examples needed.
