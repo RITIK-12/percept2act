@@ -71,6 +71,9 @@ CMD=(lerobot-train
   --log_freq=100
   --policy.device=xpu          # Arc iGPU; use cpu if xpu errors out
   --wandb.enable=false
+  # Defaults to true, which makes lerobot-train demand a Hub repo id before it
+  # will start. We only ever want a local checkpoint.
+  --policy.push_to_hub=false
 )
 # SmolVLA must start from the pretrained base, already in the HF cache.
 [[ "$WHICH" == "smolvla" ]] && CMD+=(--policy.pretrained_path=lerobot/smolvla_base)
