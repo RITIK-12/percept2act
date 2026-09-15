@@ -135,6 +135,7 @@ def main() -> int:
     best = 0.0
     t0 = time.time()
     last_print = 0.0
+    view = None
     win = f"percept2act · {args.camera}"
     print(f"streaming {args.camera}; sharpness peaks when focus is correct")
 
@@ -168,7 +169,8 @@ def main() -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        cv2.imwrite(str(live), view if "view" in dir() else frame)
+        if view is not None:
+            cv2.imwrite(str(live), view)
         stream.close()
         if not args.headless:
             cv2.destroyAllWindows()

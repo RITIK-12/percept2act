@@ -142,12 +142,9 @@ openvino:
   log_latency: true
 
 runtime:
-  # Two-process split, chosen to avoid a mid-Challenge-Day dependency conflict:
-  #   detector service -> `hack_lerobot` conda env (has anomalib + nncf)
-  #   orchestrator     -> Studio backend venv (has physicalai Runtime + lerobot)
-  # The HTTP boundary between them IS the structured defect signal the rubric
-  # asks about.
-  detector_host: 127.0.0.1
-  detector_port: 8731
+  # Single process, in the `hack_lerobot` conda env -- it is the one env that has
+  # lerobot, anomalib and openvino together, so the whole loop runs in one
+  # command with no IPC. The Studio backend venv is used only for training and
+  # export, where `physicalai` lives.
   latency_log: experiments/latency.jsonl
   max_bricks_per_run: 20
