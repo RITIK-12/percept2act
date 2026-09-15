@@ -82,13 +82,22 @@ echo "  output  : $OUTPUT_DIR"
 printf '  command : '; printf '%q ' "${CMD[@]}"; echo
 echo
 
+if [[ -d "$OUTPUT_DIR" ]]; then
+  echo "Output directory already exists: $OUTPUT_DIR"
+  echo "  resume it:  bash scripts/14_train_vla.sh --resume=true"
+  echo "  or start over:  rm -rf $OUTPUT_DIR"
+  exit 1
+fi
+
 if [[ "$DRY" == 1 ]]; then
   echo "(dry run -- nothing executed)"
   echo "If a flag is rejected, check the exact names with:  lerobot-train --help"
   exit 0
 fi
 
-mkdir -p "$OUTPUT_DIR"
+# Deliberately do NOT create OUTPUT_DIR: lerobot-train refuses to start if it
+# already exists and --resume is false, so creating it here guaranteed a
+# FileExistsError on the very first run.
 "${CMD[@]}"
 
 echo
