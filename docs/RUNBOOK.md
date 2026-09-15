@@ -66,16 +66,21 @@ Expect `FAIL 0`. It checks NPU visibility, both arm ports, existing calibration,
 all three cameras, and re-applies the wrist camera's exposure (its v4l2 settings
 reset on every replug).
 
-One durable fix worth doing now — you are not in `dialout`, so the arm ports
-work only because they are currently `chmod 777`, which udev undoes on replug:
+The `dialout` warning is **safe to ignore during the demo**. The ports are
+already `chmod`ed open and working. It only matters if you replug an arm or
+reboot, and the recovery is one line with no logout:
+
+```bash
+sudo chmod 666 /dev/ttyACM0 /dev/ttyACM1
+```
+
+The permanent fix needs a re-login, so save it for after the demo:
 
 ```bash
 sudo usermod -aG dialout ird-demo
 ```
 
-Log out and back in for it to take effect.
-
-**Gate:** `FAIL 0`.
+**Gate:** `FAIL 0`. A `WARN` on dialout is fine.
 
 ---
 
@@ -334,7 +339,7 @@ a script does adequately.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Arm port permission denied | udev reset the `chmod`; you are not in `dialout` | `sudo usermod -aG dialout ird-demo`, re-login |
+| Arm port permission denied | replug or reboot; udev restored `660 root:dialout` and you are not in that group | **Instant:** `sudo chmod 666 /dev/ttyACM0 /dev/ttyACM1`. Permanent (needs re-login, do it after the demo): `sudo usermod -aG dialout ird-demo` |
 | Wrist camera all black | lens cap, or exposure reset on replug | Remove cap; `bash scripts/00_preflight.sh` re-applies exposure |
 | Wrist camera blurry | lens not focused | Twist the barrel; it is excluded from `policy_inputs` by default |
 | `device 'NPU' not available` | OpenVINO cannot see the NPU | `python -c "import openvino as ov; print(ov.Core().available_devices)"` |
