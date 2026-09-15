@@ -6,51 +6,44 @@
 # only teach it this specific pick-and-place.
 #
 # Usage:
-#   bash scripts/14_train_vla.sh                      # fine-tune the sorting policy
-#   bash scripts/14_train_vla.sh smolvla --dry-run    # print the command, run nothing
+#   bash scripts/14_train_vla.sh                    # fine-tune with defaults
+#   bash scripts/14_train_vla.sh --steps=8000       # shorter run
+#   bash scripts/14_train_vla.sh --dry-run          # print the command, run nothing
 #
-# Extra flags pass straight through, e.g.:
-#   bash scripts/14_train_vla.sh smolvla --steps=30000 --batch_size=32
+# Any other flag passes straight through to lerobot-train, e.g. --batch_size=32.
 #
 # Takes 45-120 min on the Arc iGPU. Run it in its own terminal and get on with
-# the detector while it trains -- the two are independent.
+# the demo while it trains -- the detector is on the NPU and replay is CPU-only,
+# so they do not contend.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 export PATH="$HOME/miniforge3/envs/hack_lerobot/bin:$PATH"
 
-WHICH="${1:-smolvla}"
-shift || true
-
+# There is only one policy, so every argument is a pass-through flag. Taking a
+# positional here meant `--steps=8000` was read as the policy name.
 DRY=0
 ARGS=()
 for a in "$@"; do
   [[ "$a" == "--dry-run" ]] && DRY=1 || ARGS+=("$a")
 done
 
-read -r REPO_ID ROOT OUT STEPS <<<"$("$PY" - "$WHICH" <<'PY'
-import sys
-sys.path.insert(0, "src")
+WHICH=smolvla
+ROOT="datasets/stage2_sort"
+OUT="experiments/smolvla_sort"
+STEPS=20000
+REPO_ID="$("$PY" -c "
+import sys; sys.path.insert(0, 'src')
 from percept2act.config import Scenario
-
-which = sys.argv[1]
-s = Scenario.load()
-if which == "smolvla":
-    key, steps = "policies.stage2_sort", 20000
-    root, out = "datasets/stage2_sort", "experiments/smolvla_sort"
-else:
-    sys.exit(f"unknown policy {which!r}")
-print(s.require(f"{key}.dataset_repo_id"), root, out, steps)
-PY
-)"
+print(Scenario.load().require('policies.stage2_sort.dataset_repo_id'))")"
 
 DATASET_ROOT="$REPO/$ROOT"
 OUTPUT_DIR="$REPO/$OUT"
 
 if [[ ! -d "$DATASET_ROOT" ]]; then
   echo "No dataset at $DATASET_ROOT"
-  echo "Record it first:  bash scripts/06_record.sh good && bash scripts/06_record.sh defective"
+  echo "Record it first:  bash scripts/06_record.sh coral 5 && bash scripts/06_record.sh blue 5"
   exit 1
 fi
 
@@ -62,12 +55,18 @@ if [[ "$WHICH" == "smolvla" ]]; then
   echo
 fi
 
+# Drop our default --steps if the caller supplied their own, or lerobot-train
+# sees the flag twice.
+for a in "${ARGS[@]+"${ARGS[@]}"}"; do
+  [[ "$a" == --steps=* ]] && STEPS=""
+done
+
 CMD=(lerobot-train
   --dataset.repo_id="$REPO_ID"
   --dataset.root="$DATASET_ROOT"
   --policy.type="$WHICH"
   --output_dir="$OUTPUT_DIR"
-  --steps="$STEPS"
+  ${STEPS:+--steps=$STEPS}
   --save_freq=2000
   --log_freq=100
   --policy.device=xpu          # Arc iGPU; use cpu if xpu errors out
