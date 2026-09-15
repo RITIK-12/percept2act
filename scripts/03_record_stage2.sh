@@ -48,10 +48,27 @@ echo "  instruction : \"$TASK\""
 echo "  destination : $PLATE plate"
 echo "  dataset     : $REPO_ID -> $ROOT"
 echo
-echo "Per episode: ONE brick on the mat. Pick it up, place it in the $PLATE"
-echo "plate, return toward home. Vary the brick colour, size and position."
-echo "The policy learns the destination from the INSTRUCTION, so keep the visual"
-echo "scene as similar as you can between the two classes."
+echo "############################################################"
+echo "# USE ANY BRICKS. Undamaged ones are fine for BOTH classes. #"
+echo "############################################################"
+echo
+echo "'$CLASS' here names the DESTINATION PLATE, not the brick's condition."
+echo "You are recording the motion '-> $PLATE plate'. Nothing in this recording"
+echo "looks at whether a brick is damaged -- Anomalib decides that at runtime and"
+echo "picks which instruction to send."
+echo
+echo "Recording damaged bricks only for one class would teach the policy to route"
+echo "by how the brick LOOKS instead of by the instruction, which is the one thing"
+echo "that must not happen. Keep the visual scene as similar as possible between"
+echo "the two classes; only the destination should differ."
+echo
+echo "Per episode: ONE brick at the taped spot. Pick it up, place it in the"
+echo "$PLATE plate, return toward home."
+echo
+echo "KEYS (do NOT use Ctrl-C -- it kills the process before the dataset is saved)"
+echo "  Right arrow : end this episode, go to the next"
+echo "  Left arrow  : discard this episode and redo it"
+echo "  Escape      : stop recording early and SAVE cleanly"
 echo
 read -rp "Press Enter when a brick is staged on the mat... " _
 
