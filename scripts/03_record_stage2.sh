@@ -48,12 +48,12 @@ echo "  instruction : \"$TASK\""
 echo "  destination : $PLATE plate"
 echo "  dataset     : $REPO_ID -> $ROOT"
 echo
-echo "Per episode: start with ONE brick already at the inspection station."
-echo "Pick it up and place it in the $PLATE plate. Return toward home."
+echo "Per episode: ONE brick on the mat. Pick it up, place it in the $PLATE"
+echo "plate, return toward home. Vary the brick colour, size and position."
 echo "The policy learns the destination from the INSTRUCTION, so keep the visual"
 echo "scene as similar as you can between the two classes."
 echo
-read -rp "Press Enter when a brick is at the station... " _
+read -rp "Press Enter when a brick is staged on the mat... " _
 
 lerobot-record \
   --robot.type="$("$PY" "$ARGS" follower-type)" \

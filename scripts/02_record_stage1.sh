@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# STAGE 1 dataset -- ACT: pick a brick off the pile and present it at the
+# OPTIONAL UPGRADE -- do this only after the end-to-end loop works.
+#
+# STAGE 1 dataset -- ACT: pick a brick off the pile and present it at a fixed
 # inspection station.
+#
+# Why bother: presenting every brick at the same pose, scale and lighting
+# collapses the nuisance variance PatchCore has to model, which is what makes
+# a memory-bank detector accurate. Worth it if time remains; not required for
+# a closed loop.
 #
 # This motion is identical for every brick regardless of its condition, so this
 # dataset is defect-independent: it stays valid no matter what the defect turns
