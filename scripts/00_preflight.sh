@@ -90,8 +90,18 @@ print(Scenario.load().require('cameras.wrist.index_or_path'))" 2>/dev/null)")
 if [[ -z "$WRIST" ]]; then
   note "wrist camera: could not read cameras.wrist.index_or_path from config"
 elif [[ -e "$WRIST" ]]; then
-  v4l2-ctl -d "$WRIST" --set-ctrl=auto_exposure=1            2>/dev/null
-  v4l2-ctl -d "$WRIST" --set-ctrl=exposure_time_absolute=60  2>/dev/null
+  # Read BOTH tuned values from config. Hardcoding only the exposure left
+  # brightness at its default of 0, which crushes the dark mat to black --
+  # exactly the state 01c_tune_exposure.py exists to avoid.
+  { read -r W_EXP; read -r W_BRI; } < <("$RUNTIME_PY" -c "
+import sys; sys.path.insert(0,'$REPO/src')
+from percept2act.config import Scenario
+s=Scenario.load()
+print(s.get('cameras.wrist.exposure') or 60)
+print(s.get('cameras.wrist.brightness') or 0)" 2>/dev/null)
+  v4l2-ctl -d "$WRIST" --set-ctrl=auto_exposure=1                     2>/dev/null
+  v4l2-ctl -d "$WRIST" --set-ctrl=exposure_time_absolute="$W_EXP"     2>/dev/null
+  v4l2-ctl -d "$WRIST" --set-ctrl=brightness="$W_BRI"                 2>/dev/null
   read -r mean blown < <("$RUNTIME_PY" -c "
 import cv2
 cap=cv2.VideoCapture('$WRIST'); best=None
@@ -101,7 +111,7 @@ for _ in range(25):
 cap.release()
 print(f'{best.mean():.0f} {(best>250).mean()*100:.1f}' if best is not None else '0 0')" 2>/dev/null)
   if (( $(echo "$mean > 20" | bc -l) )); then
-    ok "wrist cam exposing (mean=$mean, blown=${blown}%)"
+    ok "wrist cam exposing (mean=$mean, blown=${blown}%, exp=$W_EXP bri=$W_BRI)"
     (( $(echo "$blown > 10" | bc -l) )) && note "wrist cam ${blown}% saturated — lower exposure_time_absolute"
   else
     bad "wrist cam is black (mean=$mean) — LENS CAP ON, or wrong node"
