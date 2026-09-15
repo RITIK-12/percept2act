@@ -115,9 +115,13 @@ detector:
   num_neighbors: 9
   input_size: [256, 256]
 
-  # TODO@RIG: set from scripts/08_train_anomalib.py output on a held-out set.
-  threshold: null               # null => use the threshold Anomalib computed
-  uncertainty_band: 0.08        # scores within +/- this of threshold => unsure
+  # Measured on 47 normals + 50 defects captured at the inspect pose:
+  #   good      0.0000 - 0.0000
+  #   defective 0.5156 - 0.5781
+  # Zero overlap, so the threshold sits midway and the band is wide enough
+  # to catch a genuinely borderline brick without either class falling in it.
+  threshold: 0.2578
+  uncertainty_band: 0.12        # scores within +/- this of threshold => unsure
 
   normals_dir: datasets/normals
   defects_dir: datasets/defects # optional, for threshold validation only

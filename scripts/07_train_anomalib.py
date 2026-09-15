@@ -38,6 +38,40 @@ def count_images(d: Path) -> int:
     return len(list(d.glob("*.png"))) + len(list(d.glob("*.jpg"))) if d.exists() else 0
 
 
+def brick_fraction(img) -> float:
+    """Fraction of the crop that looks like a saturated brick rather than bare mat."""
+    import cv2
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    s, v = hsv[..., 1], hsv[..., 2]
+    return float(((s > 70) & (v > 60)).mean())
+
+
+def quarantine_empty(d: Path, min_fraction: float = 0.02) -> int:
+    """Move brick-less crops aside.
+
+    Auto-capture fires on a timer, so the first frames often land before the
+    brick is in place. Training on those teaches PatchCore that an empty mat is
+    normal, which drags the decision boundary toward "anything with a brick in
+    it is unusual".
+    """
+    import cv2
+
+    if not d.exists():
+        return 0
+    rejects = d.parent / f"{d.name}_rejected"
+    moved = 0
+    for p in sorted(list(d.glob("*.png")) + list(d.glob("*.jpg"))):
+        img = cv2.imread(str(p))
+        if img is None or brick_fraction(img) < min_fraction:
+            rejects.mkdir(parents=True, exist_ok=True)
+            p.rename(rejects / p.name)
+            moved += 1
+    if moved:
+        print(f"  quarantined {moved} brick-less crop(s) -> {rejects}")
+    return moved
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--int8", action="store_true", help="also export an INT8 model")
@@ -50,6 +84,10 @@ def main() -> int:
     defects = REPO / str(scn.require("detector.defects_dir"))
     export_root = REPO / str(scn.require("detector.export_dir"))
     h, w = scn.require("detector.input_size")
+
+    print("screening captures for brick-less frames...")
+    quarantine_empty(normals)
+    quarantine_empty(defects)
 
     n_normal, n_abnormal = count_images(normals), count_images(defects)
     print(f"normals  : {n_normal:>4}  {normals}")

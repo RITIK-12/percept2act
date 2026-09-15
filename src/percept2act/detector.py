@@ -103,15 +103,20 @@ class Detector:
     # -- inference -----------------------------------------------------------
 
     def preprocess(self, bgr: np.ndarray) -> np.ndarray:
-        """BGR uint8 crop -> normalized NCHW float32, matching Anomalib's export."""
+        """BGR uint8 crop -> NCHW float32 in [0, 1].
+
+        Deliberately NOT ImageNet-normalized. Anomalib 2.x bakes its
+        PreProcessor into the exported graph, so normalizing here too applies it
+        twice and saturates every output to 1.0 for both classes -- the model
+        looks broken while actually being fed garbage. Measured on this export:
+        [0,1] input separates good 0.000 from defective 0.539; pre-normalized
+        input gives 1.000 for both.
+        """
         import cv2
 
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
         resized = cv2.resize(rgb, (self.input_w, self.input_h), interpolation=cv2.INTER_LINEAR)
         arr = resized.astype(np.float32) / 255.0
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        arr = (arr - mean) / std
         return np.transpose(arr, (2, 0, 1))[None, ...]
 
     def score(self, bgr: np.ndarray) -> Verdict:
@@ -132,21 +137,25 @@ class Detector:
         )
 
     def _extract_score(self, result) -> float:
-        """Pull the scalar image-level score out of the model's outputs.
+        """Pull the image-level anomaly score out of the model's outputs.
 
-        Anomalib's OpenVINO export emits an anomaly map and, depending on
-        version, a separate scalar. Prefer the scalar; otherwise reduce the map
-        by its max, which is the image-level score PatchCore is defined by.
+        The export exposes `pred_score`, `pred_label`, `anomaly_map` and
+        `pred_mask`. Select `pred_score` by name rather than by shape --
+        `pred_label` is also a single element, and picking it would collapse
+        every score to a hard 0/1 and make the uncertainty band meaningless.
         """
-        scalars, maps = [], []
         for out in self._outputs:
-            arr = np.asarray(result[out])
-            (scalars if arr.size == 1 else maps).append(arr)
-        if scalars:
-            return float(scalars[0].reshape(-1)[0])
-        if maps:
-            return float(max(m.max() for m in maps))
-        raise RuntimeError("detector produced no usable output")
+            if "pred_score" in out.get_names():
+                return float(np.asarray(result[out]).reshape(-1)[0])
+        # Older exports omit the scalar; PatchCore's image score is the max of
+        # its anomaly map, so fall back to that.
+        for out in self._outputs:
+            if "anomaly_map" in out.get_names():
+                return float(np.asarray(result[out]).max())
+        raise RuntimeError(
+            f"no pred_score or anomaly_map output; got "
+            f"{[o.get_names() for o in self._outputs]}"
+        )
 
     def classify(self, score: float) -> str:
         """Map a score to good / defective / unsure.
