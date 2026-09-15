@@ -36,11 +36,21 @@ from percept2act.config import Scenario
 print(Scenario.load().require('policies.stage2_sort.episodes_per_instruction'))")}"
 
 CAMS=$("$PY" "$ARGS" cameras)
-read -r TASK PLATE < <("$PY" -c "
+# Read one value per LINE. `read -r TASK PLATE` would word-split the instruction
+# on spaces and silently truncate it to "put" -- which is identical for both
+# plates, so the policy would have no way to tell the two behaviours apart.
+{ read -r TASK; read -r PLATE; } < <("$PY" -c "
 import sys;sys.path.insert(0,'$REPO/src')
 from percept2act.config import Scenario
 s=Scenario.load()
-print(s.instruction_for_class('$CLASS'), s.plate_for_class('$CLASS'))")
+print(s.instruction_for_class('$CLASS'))
+print(s.plate_for_class('$CLASS'))")
+
+if [[ -z "$TASK" || "$TASK" != *" "* ]]; then
+  echo "Instruction looks truncated: '$TASK'"
+  echo "Expected a full sentence. Check task.instructions in config/scenario.yaml."
+  exit 1
+fi
 REPO_ID=$("$PY" -c "
 import sys;sys.path.insert(0,'$REPO/src')
 from percept2act.config import Scenario
