@@ -93,9 +93,10 @@ cameras:
 # Fixing pose + scale + lighting here is what makes a memory-bank anomaly
 # model viable on ~50 normals.
 inspection_station:
-  # Pixel crop in the `inspect` camera frame. TODO@RIG: set with
-  # scripts/01_assign_cameras.py --tune-crop
-  crop: [180, 120, 460, 360]    # [x0, y0, x1, y1]
+  # Region of the WRIST camera frame that Anomalib scores, measured from
+  # frame 0 of a recorded episode (i.e. the arm at its start pose). Bricks
+  # fill it and the marker marks are resolvable inside it.
+  crop: [80, 60, 320, 300]      # [x0, y0, x1, y1] -- 240x240
 
 # ---------------------------------------------------------------------------
 # Detector — Anomalib. Normal-only training; no defective examples needed.
