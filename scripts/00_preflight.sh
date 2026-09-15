@@ -6,6 +6,22 @@
 # controls reset on every replug).
 set -uo pipefail
 
+# Refuse to run under sudo. sudo resets $HOME to /root, so every path below
+# ($HOME/miniforge3, the lerobot calibration cache, the Studio venv) silently
+# resolves to somewhere that does not exist -- and the report comes back as a
+# wall of FAILs that look like broken hardware. Nothing here needs root.
+if [[ "${EUID}" -eq 0 ]]; then
+  echo "Do not run this under sudo."
+  echo
+  echo "  sudo resets \$HOME to /root, so the conda envs, the arm calibration"
+  echo "  cache and the Studio venv all resolve to paths that do not exist."
+  echo "  Every check then fails for the wrong reason."
+  echo
+  echo "Run it as yourself:"
+  echo "  bash scripts/00_preflight.sh"
+  exit 2
+fi
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 STUDIO_PY="$HOME/physical-ai-studio/application/backend/.venv/bin/python"
@@ -33,7 +49,9 @@ echo "=== 2. environments ==="
 echo "=== 3. arms ==="
 for arm in follower leader; do
   port=$("$RUNTIME_PY" "$REPO/src/percept2act/lerobot_args.py" "$arm-port" 2>/dev/null)
-  if [[ -e "$port" ]]; then
+  if [[ -z "$port" ]]; then
+    bad "$arm port: could not read arms.$arm.port from config (is the runtime env OK?)"
+  elif [[ -e "$port" ]]; then
     if [[ -r "$port" && -w "$port" ]]; then ok "$arm port readable/writable ($(basename "$port"))"
     else bad "$arm port exists but no access — sudo usermod -aG dialout $USER, then re-login"; fi
   else bad "$arm port missing: $port"; fi
@@ -63,7 +81,9 @@ WRIST=$(readlink -f "$("$RUNTIME_PY" -c "
 import sys; sys.path.insert(0,'$REPO/src')
 from percept2act.config import Scenario
 print(Scenario.load().require('cameras.wrist.index_or_path'))" 2>/dev/null)")
-if [[ -e "$WRIST" ]]; then
+if [[ -z "$WRIST" ]]; then
+  note "wrist camera: could not read cameras.wrist.index_or_path from config"
+elif [[ -e "$WRIST" ]]; then
   v4l2-ctl -d "$WRIST" --set-ctrl=auto_exposure=1            2>/dev/null
   v4l2-ctl -d "$WRIST" --set-ctrl=exposure_time_absolute=60  2>/dev/null
   read -r mean blown < <("$RUNTIME_PY" -c "
