@@ -1,84 +1,149 @@
-# Scenario configuration.
+# Scenario configuration — single source of truth.
 #
-# Everything the organizers reveal at Challenge Day kickoff belongs in THIS file.
-# If you find yourself editing Python to accommodate the reveal, stop and add a
-# key here instead.
+# Everything scenario-specific lives HERE. If you find yourself editing Python
+# to accommodate something the organizers revealed, stop and add a key instead.
 #
-# Values marked TODO@KICKOFF are unknown until the challenge starts.
+# Values verified on the box 2026-09-15 are marked [VERIFIED].
+# Values still needing a physical measurement are marked TODO@RIG.
 
 task:
-  # TODO@KICKOFF — the instruction handed to the VLA layer.
-  instruction: >
-    Inspect each LEGO brick. If it is defective, place it in the coral plate.
-    If it is good, place it in the blue plate.
+  # The three instruction strings. These are the Anomalib -> SmolVLA seam:
+  # the detector's verdict selects which string conditions the policy.
+  instructions:
+    present:   "pick up the brick and place it in front of the camera"
+    defective: "put the brick in the coral plate"
+    good:      "put the brick in the blue plate"
 
-  # TODO@KICKOFF — what actually counts as a defect.
-  # Drives which Anomalib model and threshold make sense.
-  defect_definition: "unknown until kickoff"
+  # Revealed at kickoff.
+  defect_definition: >
+    Physical damage to the brick: chipped, cracked, missing or deformed studs.
 
 classes:
   good:
     plate: blue
+    instruction: good
   defective:
     plate: coral
-  # Detections inside the uncertainty band land here rather than being guessed.
+    instruction: defective
   unsure:
-    plate: null          # null => hold position / re-inspect instead of placing
-    behavior: reinspect  # reinspect | set_aside | hold
+    # Scores inside the uncertainty band are never silently guessed.
+    behavior: reinspect      # reinspect | set_aside | hold
+    max_reinspect: 1
+    # After max_reinspect attempts still unsure -> fall back to this class.
+    fallback_class: defective
+
+# ---------------------------------------------------------------------------
+# Hardware. [VERIFIED] from lerobot-find-port + shell history 2026-09-14.
+# by-id paths are used because /dev/ttyACM* indices reshuffle on replug.
+# ---------------------------------------------------------------------------
+arms:
+  follower:                     # LEFT arm. Gripper + wrist cam. Does all manipulation.
+    type: so101_follower
+    id: hack_follower           # [VERIFIED] existing calibration in ~/.cache/huggingface/lerobot
+    port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79018567-if00   # [VERIFIED] -> ttyACM1
+  leader:                       # RIGHT arm. Handle only. Teleop input for recording.
+    type: so101_leader
+    id: hack_leader             # [VERIFIED] existing calibration
+    port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B8E113248-if00   # [VERIFIED] -> ttyACM0
 
 cameras:
-  # Prefer stable by-id paths — /dev/videoN indices reshuffle across reboots.
+  # [VERIFIED] 2x RealSense D415 + 1x Sonix UVC webcam present.
+  # Which RealSense serial is overhead vs inspect is assigned by
+  # scripts/01_assign_cameras.py -- run it before recording.
+  wrist:
+    kind: opencv                # Sonix USB2.0_CAM1, mounted on the follower
+    index_or_path: /dev/v4l/by-id/usb-Sonix_Technology_Co.__Ltd._USB2.0_CAM1_USB2.0_CAM1-video-index0
+    width: 640
+    height: 480
+    fps: 30
   overhead:
-    device: /dev/v4l/by-id/TODO      # boom-mounted, looks down at the mat
-    role: localization
-    resolution: [1920, 1080]
+    kind: realsense
+    serial: "243622062278"           # [ASSIGNED]
+    width: 640
+    height: 480
+    fps: 30
+    use_depth: false            # depth available if we want it; off by default
   inspect:
-    device: /dev/v4l/by-id/TODO      # tripod behind mat, faces workspace
-    role: defect_inspection
-    resolution: [1920, 1080]
+    kind: realsense
+    serial: "243722062690"           # [ASSIGNED]
+    width: 640
+    height: 480
+    fps: 30
+    use_depth: false
 
-arms:
-  follower:                # LEFT arm — has the gripper, does all manipulation
-    port: /dev/ttyACM0     # TODO: confirm in Phase 1
-    has_gripper: true
-  leader:                  # RIGHT arm — handle only, teleop input device
-    port: /dev/ttyACM1     # TODO: confirm in Phase 1
-    has_gripper: false
+  # Which streams feed which consumer. Keeping `inspect` out of the policy
+  # observation space means the detector can be retuned without retraining
+  # either policy.
+  policy_inputs: [wrist, overhead]
+  detector_input: inspect
 
-# Robot-frame poses, filled during Phase 1. Units: metres, radians.
-poses:
-  home: null
-  retreat: null
-  plate_blue: null
-  plate_coral: null
-  unsure_position: null
+# The fixed spot on the mat where ACT presents each brick for inspection.
+# Fixing pose + scale + lighting here is what makes a memory-bank anomaly
+# model viable on ~50 normals.
+inspection_station:
+  # Pixel crop in the `inspect` camera frame. TODO@RIG: set with
+  # scripts/01_assign_cameras.py --tune-crop
+  crop: [180, 120, 460, 360]    # [x0, y0, x1, y1]
 
-motion:
-  approach_height: 0.08    # metres above the brick before descending
-  grasp_height: 0.015      # gripper closes at this height
-  lift_height: 0.10        # clearance while traversing to a plate
-  grasp_retries: 1         # retry once on a failed grasp, then skip the brick
+# ---------------------------------------------------------------------------
+# Detector — Anomalib. Normal-only training; no defective examples needed.
+# ---------------------------------------------------------------------------
+detector:
+  model: patchcore              # patchcore suits localized structural damage
+  backbone: wide_resnet50_2     # [VERIFIED] already cached (264 MB)
+  layers: [layer2, layer3]
+  coreset_sampling_ratio: 0.1
+  num_neighbors: 9
+  input_size: [256, 256]
 
-perception:
-  # Classical segmentation for localization — bright bricks on a dark matte mat.
-  # Re-tune under the actual demo lighting; do not trust values from elsewhere.
-  hsv_bounds:
-    saturation_min: 90
-    value_min: 60
-  blob_area_px: [800, 20000]   # rejects the plates, the mat edge, and hands
+  # TODO@RIG: set from scripts/08_train_anomalib.py output on a held-out set.
+  threshold: null               # null => use the threshold Anomalib computed
+  uncertainty_band: 0.08        # scores within +/- this of threshold => unsure
 
-  anomaly:
-    model: padim               # padim | patchcore — both fit on normals only
-    threshold: 0.5             # TODO@KICKOFF — tune on a held-out set
-    # Scores within +/- this of the threshold are routed to `unsure`.
-    uncertainty_band: 0.08
+  normals_dir: datasets/normals
+  defects_dir: datasets/defects # optional, for threshold validation only
+  export_dir: experiments/detector
 
+# ---------------------------------------------------------------------------
+# Policies — trained in Physical AI Studio, exported to OpenVINO IR.
+# ---------------------------------------------------------------------------
+policies:
+  stage1_present:
+    policy: act
+    dataset_repo_id: percept2act/stage1_present
+    episodes: 40
+    export_dir: experiments/act_present
+  stage2_sort:
+    policy: smolvla
+    base_checkpoint: lerobot/smolvla_base
+    dataset_repo_id: percept2act/stage2_sort
+    episodes_per_instruction: 30
+    export_dir: experiments/smolvla_sort
+
+  # Per-step action-chunk execution budget.
+  max_steps_per_stage: 400
+  control_fps: 30
+
+# ---------------------------------------------------------------------------
+# OpenVINO device placement. Measured in scripts/09_benchmark.py; the demo
+# requires explaining each choice out loud.
+# ---------------------------------------------------------------------------
 openvino:
-  # Starting placement. Measure in Phase 6, then adjust with evidence.
   devices:
-    anomaly_detection: NPU
-    heavy_vision: GPU
-    segmentation: CPU
-    control: CPU
-  precision: FP16              # try INT8 in Phase 6, keep only if accuracy holds
-  log_latency: true            # required — placement must be explained live
+    detector: NPU               # fixed shape, sustained -> NPU, frees CPU
+    stage1_present: NPU         # ACT is a small transformer, fits NPU well
+    stage2_sort: GPU            # SmolVLA ~500M VLM, needs Arc iGPU throughput
+    control: CPU                # IK, gripper checks, camera decode: latency-sensitive
+  precision: FP16               # try INT8 via nncf once FP16 works
+  log_latency: true
+
+runtime:
+  # Two-process split, chosen to avoid a mid-Challenge-Day dependency conflict:
+  #   detector service -> `hack_lerobot` conda env (has anomalib + nncf)
+  #   orchestrator     -> Studio backend venv (has physicalai Runtime + lerobot)
+  # The HTTP boundary between them IS the structured defect signal the rubric
+  # asks about.
+  detector_host: 127.0.0.1
+  detector_port: 8731
+  latency_log: experiments/latency.jsonl
+  max_bricks_per_run: 20

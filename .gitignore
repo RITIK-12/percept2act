@@ -14,3 +14,12 @@
 # ...but allow committed diagrams and docs assets
 !docs/**/*.png
 !docs/**/*.jpg
+
+# Recorded LeRobot datasets and training artifacts — too large to track
+/datasets/
+/experiments/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
