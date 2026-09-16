@@ -26,8 +26,9 @@ Usage
   python scripts/19_record_clean.py --class coral --episodes 20
   python scripts/19_record_clean.py --class blue  --episodes 20
 
-ENTER ends an episode. Ctrl-C stops and keeps everything already saved.
-Run in the `hack_lerobot` env.
+A live wrist-camera window shows the leader alignment while you line up, then
+the frame count while recording. SPACE or q in that window ends an episode
+(ENTER in the terminal works too). Ctrl-C stops and keeps everything saved.
 """
 
 from __future__ import annotations
@@ -41,9 +42,39 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
+import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
 from percept2act.config import Scenario  # noqa: E402
+
+WIN = "percept2act - record  (SPACE/q = end episode)"
+
+
+def preview(obs: dict, role: str, crop, lines: list[tuple[str, tuple]], recording: bool) -> int:
+    """Show the wrist feed with a status overlay. Returns the key pressed.
+
+    The robot is configured with color_mode=RGB (that is what gets recorded), so
+    the frame has to be flipped back to BGR for cv2 or the preview shows the
+    brick in the wrong colour and you second-guess a perfectly good take.
+    """
+    frame = obs.get(role)
+    if frame is None or not isinstance(frame, np.ndarray) or frame.ndim != 3:
+        return -1
+    view = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+    if crop:
+        x0, y0, x1, y1 = crop
+        cv2.rectangle(view, (x0, y0), (x1, y1), (90, 90, 90), 1)
+    if recording:
+        cv2.circle(view, (view.shape[1] - 24, 24), 9, (0, 0, 255), -1)
+
+    for i, (text, colour) in enumerate(lines):
+        y = 28 + i * 26
+        cv2.putText(view, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3, cv2.LINE_AA)
+        cv2.putText(view, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, colour, 1, cv2.LINE_AA)
+
+    cv2.imshow(WIN, view)
+    return cv2.waitKey(1) & 0xFF
 
 
 def _reader(flag: dict) -> None:
@@ -82,6 +113,8 @@ def main() -> int:
         raise SystemExit("inspection_station.pose is not set; run scripts/05_set_inspect_pose.py")
     target = np.asarray(pose_cfg, dtype=float)
 
+    crop = scn.get("inspection_station.crop")
+    role = str(scn.require("cameras.detector_input"))
     repo_id = str(scn.require("policies.stage2_sort.dataset_repo_id"))
     root = REPO / str(scn.require("replay.dataset_root"))
     fps = int(scn.require("policies.control_fps"))
@@ -155,18 +188,29 @@ def main() -> int:
             print(f"  bring the LEADER to match (within {args.tolerance:.0f} deg)")
             close_since = None
             while True:
+                obs = robot.get_observation()
                 robot.send_action(pose)          # hold while the operator lines up
                 lead = leader.get_action()
                 delta = max(abs(float(lead[n]) - pose[n]) for n in names)
-                if delta <= args.tolerance:
+                ok = delta <= args.tolerance
+                if ok:
                     close_since = close_since or time.time()
                     if time.time() - close_since >= 1.0:
                         break
                 else:
                     close_since = None
+
+                held = (time.time() - close_since) if close_since else 0.0
+                preview(obs, role, crop, [
+                    (f"episode {ep}/{args.episodes}   {plate} plate", (255, 255, 255)),
+                    (f"leader delta {delta:5.1f} deg  (need <= {args.tolerance:.0f})",
+                     (0, 255, 0) if ok else (0, 165, 255)),
+                    ("HOLD STEADY... %.1fs" % held if ok else "align the leader with the follower",
+                     (0, 255, 0) if ok else (0, 165, 255)),
+                ], recording=False)
                 print(f"\r    max joint delta {delta:6.1f} deg   ", end="", flush=True)
                 time.sleep(1.0 / fps)
-            print("\r    matched -- RECORDING. ENTER to end.            ")
+            print("\r    matched -- RECORDING. SPACE/q in the window, or ENTER here.   ")
 
             flag = {"stop": False}
             threading.Thread(target=_reader, args=(flag,), daemon=True).start()
@@ -183,13 +227,23 @@ def main() -> int:
                     "task": task,
                 })
                 frames += 1
+
+                elapsed = time.time() - t0
+                k = preview(obs, role, crop, [
+                    (f"REC  episode {ep}/{args.episodes}   {plate} plate", (255, 255, 255)),
+                    (f"{frames} frames   {elapsed:4.1f}s / {args.seconds:.0f}s", (255, 255, 255)),
+                    (task, (0, 255, 255)),
+                ], recording=True)
+                if k in (ord(" "), ord("q")):
+                    flag["stop"] = True
+
                 time.sleep(max(0.0, 1.0 / fps - (time.perf_counter() - loop_t)))
 
             dataset.save_episode()
             recorded += 1
             print(f"  saved {frames} frames ({frames / fps:.1f}s)")
             if not flag["stop"]:
-                print("  hit the time limit -- press ENTER to release the reader")
+                print("  hit the time limit (ended on --seconds, not a keypress)")
 
     except KeyboardInterrupt:
         print("\nstopped")
@@ -199,6 +253,7 @@ def main() -> int:
             park()
         except Exception:  # noqa: BLE001 -- never block disconnect on a park failure
             pass
+        cv2.destroyAllWindows()
         robot.disconnect()
         leader.disconnect()
 
