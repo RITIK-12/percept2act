@@ -8,7 +8,12 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 import sys, json, collections
 from pathlib import Path
 sys.path.insert(0, "$REPO/src")
-root = Path("$REPO/datasets/stage2_sort")
+import sys; sys.path.insert(0, "$REPO/src")
+from percept2act.config import Scenario
+# Read from config. Hardcoding this meant the script kept reporting the OLD
+# dataset after the config was pointed at a freshly recorded one.
+root = Path("$REPO") / str(Scenario.load().require("replay.dataset_root"))
+print(f"dataset: {root}\n")
 if not root.exists():
     sys.exit("no stage2_sort dataset yet")
 
