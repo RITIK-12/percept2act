@@ -129,7 +129,12 @@ is visible in the 10× gap. It simply does not matter at this duty cycle.
 
 ## Reliability
 
-- **Uncertainty band** — scores within ±0.12 of the threshold are never guessed.
+- **Median vote, not a single frame** — every verdict is the median of 12
+  consecutive scores (`detector.vote_frames`). One frame is a poor basis for a
+  decision: glare on a stud or an autoexposure step moves the score enough to
+  flip a borderline brick. Median discards those outliers where a mean would let
+  one bad frame drag the decision across the line. ~600 ms once per brick.
+- **Uncertainty band** — scores within ±0.012 of the threshold are never guessed.
   The loop re-inspects, and only then falls back to the configured class.
 - **Pose repeatability** — the wrist camera moves with the arm, so the loop
   returns to a fixed inspect pose before every score. Without it the detector
@@ -140,6 +145,42 @@ is visible in the 10× gap. It simply does not matter at this duty cycle.
   the servo bus.
 
 ---
+
+## Physical AI Studio and OpenVINO — what runs where, precisely
+
+Worth stating exactly, because a vague claim here is worse than an accurate
+split.
+
+| Component | Reality |
+|---|---|
+| Dataset | LeRobot v3, the format Studio manages. Readable by Studio and by `physicalai.data.lerobot.LeRobotDataModule` with no import step |
+| Studio backend + UI | Running, project and both arms registered |
+| Policy training | `lerobot-train`. The Studio path (`scripts/16_studio_train.sh`) is built and reaches the Lightning trainer, but was not the run used for the demo |
+| Detector | **OpenVINO IR on the NPU** — `experiments/detector/openvino_fp16/weights/openvino/model.xml` |
+| Policy | **PyTorch on the Arc iGPU** (torch-xpu), not OpenVINO |
+
+### Why the policy is not OpenVINO IR
+
+Not for lack of trying, and the blocker is specific. `physicalai export` loads
+through Lightning's `load_from_checkpoint`, so it only accepts a `.ckpt` from
+`physicalai fit`; our policy came from `lerobot-train`, which writes a LeRobot
+`pretrained_model/` directory.
+
+`scripts/21_export_policy_ov.py` works around that by calling the Policy mixin's
+`export()` on an instance, which needs only a loadable checkpoint. It gets as
+far as loading the trained weights, then stops in
+`_get_default_export_input_sample`: the policy cannot synthesise a sample input
+without dataset features, so tracing needs an explicit one.
+
+A related incompatibility is documented in `scripts/20_prepare_vla_base.py`:
+`physicalai` cannot read `lerobot/smolvla_base`'s config.json at all, because
+`SmolVLAConfig.from_dict(..., strict=False)` does not drop the LeRobot-only keys
+its comment claims it drops — it forwards them to jsonargparse, which rejects
+the config. That one we did solve, by filtering the config to the fields
+`SmolVLAConfig` declares.
+
+So: three engines, each doing work it suits, with measured numbers for all of
+them — and one honest gap.
 
 ## Reproducing these numbers
 
