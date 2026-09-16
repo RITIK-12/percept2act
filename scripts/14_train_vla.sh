@@ -30,15 +30,19 @@ for a in "$@"; do
 done
 
 WHICH=smolvla
-ROOT="datasets/stage2_sort"
-OUT="experiments/smolvla_sort"
-REPO_ID="$("$PY" -c "
+# Read BOTH from config. ROOT used to be hardcoded to datasets/stage2_sort, so
+# after the config was pointed at a freshly recorded dataset this script would
+# happily train on the old one while printing the new repo_id.
+read -r REPO_ID ROOT <<<"$("$PY" -c "
 import sys; sys.path.insert(0, 'src')
 from percept2act.config import Scenario
-print(Scenario.load().require('policies.stage2_sort.dataset_repo_id'))")"
+s = Scenario.load()
+print(s.require('policies.stage2_sort.dataset_repo_id'), s.require('replay.dataset_root'))")"
 
 DATASET_ROOT="$REPO/$ROOT"
-OUTPUT_DIR="$REPO/$OUT"
+# Output named after the dataset, so training a new one does not collide with
+# (or quietly overwrite) the checkpoints from a previous dataset.
+OUTPUT_DIR="$REPO/experiments/smolvla_$(basename "$ROOT")"
 
 if [[ ! -d "$DATASET_ROOT" ]]; then
   echo "No dataset at $DATASET_ROOT"
