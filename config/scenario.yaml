@@ -147,7 +147,7 @@ policies:
   stage2_sort:
     policy: smolvla
     base_checkpoint: lerobot/smolvla_base
-    dataset_repo_id: percept2act/stage2_sort
+    dataset_repo_id: percept2act/stage2_clean
     episodes_per_instruction: 30
     export_dir: experiments/smolvla_sort
 
@@ -173,7 +173,7 @@ openvino:
 # Swap to the `policy` executor once SmolVLA has trained; nothing else changes.
 # ---------------------------------------------------------------------------
 replay:
-  dataset_root: datasets/stage2_sort
+  dataset_root: datasets/stage2_clean
   # Teleop start poses drift ~20 degrees episode to episode, so blind
   # playback from wherever the arm happens to be would not line up with the
   # recorded trajectory. Ramp into the episode's own first pose first.
