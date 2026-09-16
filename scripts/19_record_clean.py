@@ -13,13 +13,14 @@ start_recording(task) / save_episode, with no home-pose parameter. So recording
 happens here, and training still happens in Studio: physicalai's
 LeRobotDataModule reads this dataset straight from disk, no import step.
 
-Two things make the start pose actually repeatable:
+BOTH arms are driven back to inspection_station.pose between episodes. The
+leader is a teleoperator but it is the same servo hardware, so torque can be
+enabled and it can be driven exactly like the follower.
 
-  1. the follower ramps back to inspection_station.pose after every episode
-  2. recording does not begin until the LEADER is brought near that same pose
-
-Step 2 matters as much as step 1 -- parking the follower and then engaging
-teleop with the leader elsewhere just snaps the follower across on frame one.
+That matters: parking only the follower and then engaging teleop with the leader
+somewhere else snaps the follower across on the first frame, which is how the
+original ~20 degree drift got into the dataset. With both parked they start
+matched, and the leader's torque is released only once you have a hand on it.
 
 Usage
 -----
@@ -93,8 +94,6 @@ def main() -> int:
                     help="destination plate: coral=defective, blue=good")
     ap.add_argument("--episodes", type=int, default=20)
     ap.add_argument("--seconds", type=float, default=25.0, help="max episode length")
-    ap.add_argument("--tolerance", type=float, default=12.0,
-                    help="degrees the leader may differ from the inspect pose before arming")
     ap.add_argument("--settle", type=float, default=2.0, help="seconds to ramp back")
     args = ap.parse_args()
 
@@ -164,18 +163,31 @@ def main() -> int:
         )
         print("created a new dataset")
 
+    bare = [n.removesuffix(".pos") for n in names]
+
     def park() -> None:
-        """Ramp the follower back to the inspect pose.
+        """Drive BOTH arms to the inspect pose.
+
+        The leader is a teleoperator, but it is the same servo hardware, so
+        torque can be enabled and it can be driven like the follower. Parking
+        both means they start every episode already matched -- no lining up by
+        hand, and no snap on the first teleop frame.
 
         Interpolated, never stepped: a step command to a distant target pulls
         full current at once and trips shoulder_lift's overload latch.
         """
+        leader.enable_torque()
         obs = robot.get_observation()
-        cur = np.array([float(obs.get(n, pose[n])) for n in names], dtype=float)
+        cur_f = np.array([float(obs.get(n, pose[n])) for n in names], dtype=float)
+        lead = leader.get_action()
+        cur_l = np.array([float(lead.get(n, pose[n])) for n in names], dtype=float)
+
         steps = max(1, int(args.settle * fps))
         for i in range(1, steps + 1):
-            blend = cur + (target - cur) * (i / steps)
-            robot.send_action({n: float(v) for n, v in zip(names, blend)})
+            f = cur_f + (target - cur_f) * (i / steps)
+            l = cur_l + (target - cur_l) * (i / steps)
+            robot.send_action({n: float(v) for n, v in zip(names, f)})
+            leader.bus.sync_write("Goal_Position", {n: float(v) for n, v in zip(bare, l)})
             time.sleep(1.0 / fps)
 
     recorded = 0
@@ -185,32 +197,26 @@ def main() -> int:
             print("  parking the follower...")
             park()
 
-            print(f"  bring the LEADER to match (within {args.tolerance:.0f} deg)")
-            close_since = None
+            # Both arms hold the pose while the brick is placed. Torque stays ON
+            # here so the leader does not sag out of position while waiting.
+            print("  place the brick, hold the leader handle, then SPACE to record")
             while True:
                 obs = robot.get_observation()
-                robot.send_action(pose)          # hold while the operator lines up
-                lead = leader.get_action()
-                delta = max(abs(float(lead[n]) - pose[n]) for n in names)
-                ok = delta <= args.tolerance
-                if ok:
-                    close_since = close_since or time.time()
-                    if time.time() - close_since >= 1.0:
-                        break
-                else:
-                    close_since = None
-
-                held = (time.time() - close_since) if close_since else 0.0
-                preview(obs, role, crop, [
-                    (f"episode {ep}/{args.episodes}   {plate} plate", (255, 255, 255)),
-                    (f"leader delta {delta:5.1f} deg  (need <= {args.tolerance:.0f})",
-                     (0, 255, 0) if ok else (0, 165, 255)),
-                    ("HOLD STEADY... %.1fs" % held if ok else "align the leader with the follower",
-                     (0, 255, 0) if ok else (0, 165, 255)),
+                robot.send_action(pose)
+                k = preview(obs, role, crop, [
+                    (f"episode {ep}/{args.episodes}   ->  {plate} plate", (255, 255, 255)),
+                    ("both arms parked at the inspect pose", (0, 255, 0)),
+                    ("place the brick + hold the leader, then SPACE", (0, 255, 255)),
                 ], recording=False)
-                print(f"\r    max joint delta {delta:6.1f} deg   ", end="", flush=True)
+                if k in (ord(" "), 13, 10):
+                    break
+                if k == ord("q"):
+                    raise KeyboardInterrupt
                 time.sleep(1.0 / fps)
-            print("\r    matched -- RECORDING. SPACE/q in the window, or ENTER here.   ")
+
+            # Release the leader only now, with a hand already on it.
+            leader.disable_torque()
+            print("    RECORDING -- SPACE/q to end")
 
             flag = {"stop": False}
             threading.Thread(target=_reader, args=(flag,), daemon=True).start()
@@ -254,6 +260,10 @@ def main() -> int:
         except Exception:  # noqa: BLE001 -- never block disconnect on a park failure
             pass
         cv2.destroyAllWindows()
+        try:
+            leader.disable_torque()   # never leave the handle stiff
+        except Exception:  # noqa: BLE001
+            pass
         robot.disconnect()
         leader.disconnect()
 
