@@ -206,15 +206,20 @@ fit, because scoring the fitted set measures memorization, not generalization.
 
 | Stage | Device | Mean | Why there |
 |---|---|---|---|
-| PatchCore | **NPU** | 51.18 ms | once per brick; frees the iGPU for the policy |
-| PatchCore | GPU (Arc) | 5.41 ms | measured for comparison, not used |
-| PatchCore | CPU | 84.20 ms | measured for comparison, not used |
+| PatchCore (90-normal bank) | **Arc iGPU** | 174 ms | see below |
 | SmolVLA | **Arc iGPU** | 2.24 ms / 176 ms | 176 ms when the VLM runs, 2.24 ms for the other 49 steps of each action chunk |
-| Control loop, camera decode | **CPU** | — | latency-sensitive and irregular |
+| Control loop, camera decode | **CPU** | n/a | latency-sensitive and irregular |
 
-The detector is deliberately *not* on the faster GPU: it runs once per ~15 s
-pick-and-place cycle, while the ~450 M parameter policy needs sustained iGPU
-throughput at control rate.
+Device placement was chosen by measurement, not assumption. An earlier detector
+with a 47-sample memory bank ran at 51 ms on the NPU, 5.4 ms on the iGPU and
+84 ms on the CPU. Growing the bank to 90 normals for better coverage made
+PatchCore's nearest-neighbour MatMul exceed the NPU's on-chip CMX, so the NPU
+plugin can no longer compile it. The detector therefore runs on the iGPU, and
+[detector.py](src/percept2act/detector.py) falls back across available devices
+automatically rather than failing at runtime.
+
+The cost is affordable because the detector runs once per brick rather than per
+frame: 174 ms against a pick-and-place cycle measured in seconds.
 
 **Reliability** — verdicts are the median of 12 frames, scores inside the
 uncertainty band are re-inspected rather than guessed, and all point-to-point

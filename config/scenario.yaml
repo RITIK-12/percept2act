@@ -170,7 +170,7 @@ policies:
 # ---------------------------------------------------------------------------
 openvino:
   devices:
-    detector: NPU               # fixed shape, sustained -> NPU, frees CPU
+    detector: GPU               # v3 memory bank exceeds NPU CMX; see detector._compile fallback
     stage2_sort: GPU            # SmolVLA ~500M VLM, needs Arc iGPU throughput
     control: CPU                # IK, gripper checks, camera decode: latency-sensitive
   precision: FP16               # try INT8 via nncf once FP16 works

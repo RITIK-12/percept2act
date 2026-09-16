@@ -16,9 +16,14 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import logging
+
 import numpy as np
 
 from percept2act.config import Scenario
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -97,8 +102,34 @@ class Detector:
         except Exception:  # noqa: BLE001
             pass  # already static, or a layout this does not apply to
 
-        compiled = core.compile_model(model, self.device)
-        return compiled, compiled.input(0), list(compiled.outputs)
+        # Fall back rather than die. PatchCore's memory bank grows with the
+        # number of fitted normals, and the nearest-neighbour MatMul can exceed
+        # the NPU's on-chip CMX -- the plugin then fails inside its allocator,
+        # which is not something to discover mid-demo. GPU and CPU have no such
+        # limit, and the detector runs once per brick, so either is fine.
+        order = [self.device] + [d for d in ("GPU", "CPU") if d != self.device]
+        errors = []
+        for device in order:
+            if device not in core.available_devices:
+                continue
+            try:
+                compiled = core.compile_model(model, device)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{device}: {type(exc).__name__}")
+                log.warning("detector failed to compile on %s, trying next", device)
+                continue
+            if device != self.device:
+                log.warning(
+                    "detector fell back to %s (configured %s). Set "
+                    "openvino.devices.detector=%s to make this the default.",
+                    device, self.device, device,
+                )
+                self.device = device
+            return compiled, compiled.input(0), list(compiled.outputs)
+
+        raise RuntimeError(
+            f"detector failed to compile on any device: {'; '.join(errors)}"
+        )
 
     # -- inference -----------------------------------------------------------
 

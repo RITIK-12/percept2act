@@ -83,7 +83,8 @@ localizes well.
 
 | Stage | Device | Mean | p50 | p95 | Throughput |
 |---|---|---|---|---|---|
-| PatchCore | **NPU** | 51.18 ms | 51.20 ms | 51.50 ms | 19.5 /s |
+| PatchCore, 90-normal bank | **Arc iGPU** | 174 ms | - | - | 5.7 /s |
+| PatchCore, 47-normal bank | NPU | 51.18 ms | 51.20 ms | 51.50 ms | 19.5 /s |
 | PatchCore | GPU (Arc) | 5.41 ms | 4.85 ms | 6.82 ms | 184.9 /s |
 | PatchCore | CPU | 84.20 ms | 83.86 ms | 89.87 ms | 11.9 /s |
 
@@ -105,7 +106,7 @@ visible cost is one ~143 ms stall per chunk boundary, not a sustained overrun.
 This is the argument for keeping the iGPU free for the policy: it is the only
 stage with a real throughput requirement.
 
-### Why the detector runs on the NPU even though the GPU is ~10× faster
+### Why the detector moved off the NPU
 
 This is the interesting part of the placement story, and it is a deliberate
 choice rather than an oversight:
