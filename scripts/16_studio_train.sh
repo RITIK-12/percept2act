@@ -64,6 +64,15 @@ if [[ "$DRY" == 0 ]] && pgrep -f "lerobot-train|physicalai fit" >/dev/null 2>&1;
   exit 1
 fi
 
+# physicalai cannot read lerobot/smolvla_base's config.json directly; this
+# writes a filtered copy it can. Cheap, and a no-op once it exists.
+if [[ ! -d "$REPO/experiments/smolvla_base_pai" ]]; then
+  "$STUDIO_BIN" >/dev/null 2>&1 || true   # touch the venv so errors surface below
+  "$HOME/physical-ai-studio/application/backend/.venv/bin/python" \
+    "$REPO/scripts/20_prepare_vla_base.py"
+  echo
+fi
+
 # Same guard as 14: a one-sided dataset trains happily and then ignores the
 # instruction at inference, which looks exactly like "the VLA does not work".
 bash "$REPO/scripts/07_verify_dataset.sh" || true

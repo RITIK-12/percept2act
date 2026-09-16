@@ -16,10 +16,14 @@
 model:
   class_path: physicalai.policies.SmolVLA
   init_args:
-    # Fine-tune from the pretrained base, never from scratch. 30 episodes teach
-    # this specific pick-and-place; the base is what already understands the
-    # instruction sentence.
-    pretrained_name_or_path: lerobot/smolvla_base
+    # Fine-tune from the pretrained base, never from scratch: the episodes teach
+    # this specific pick-and-place, the base is what understands the sentence.
+    #
+    # NOT lerobot/smolvla_base directly -- physicalai cannot parse its LeRobot
+    # config.json (see scripts/20_prepare_vla_base.py). This is the same
+    # checkpoint with the non-architecture keys stripped; 16_studio_train.sh
+    # builds it automatically if missing.
+    pretrained_name_or_path: experiments/smolvla_base_pai
     # <= 0 keeps only the cameras present in the batch. We record one (wrist).
     num_cameras: 0
     image_key_reorder_map: {}
