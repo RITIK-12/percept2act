@@ -160,7 +160,17 @@ class PolicyExecutor:
         self.runtime = runtime
         self.device = scn.device_for("stage2_sort")
         self.max_steps = int(scn.require("policies.max_steps_per_stage"))
+        # Set by the Orchestrator, which owns the camera. See set_frame_source.
+        self.frame_source = None
         self.runner = self._build()
+
+    def set_frame_source(self, fn) -> None:
+        """Supply the wrist frames the policy needs but the robot cannot give.
+
+        The robot is connected with cameras={} so the detector keeps exclusive
+        use of the wrist camera; without this the policy batch has no image.
+        """
+        self.frame_source = fn
 
     def _build(self):
         from percept2act.policy_runner import PolicyRunner
@@ -193,6 +203,7 @@ class PolicyExecutor:
             robot=self.robot,
             task=instruction,
             max_steps=self.max_steps,
+            frames=self.frame_source,
         )
 
     def close(self) -> None:

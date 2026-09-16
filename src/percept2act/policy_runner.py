@@ -123,12 +123,20 @@ class PolicyRunner:
         max_steps: int,
         action_names: list[str] | None = None,
         on_step=None,
+        frames=None,
     ) -> int:
         """Drive the robot with this policy for up to `max_steps` control cycles.
 
         Returns the number of steps actually executed. There is no learned
         termination signal, so the caller bounds the stage by step count and
         checks the physical outcome afterwards.
+
+        `frames` is an optional callable returning {name: HWC uint8 RGB}. The
+        robot is connected with cameras={} so the detector and the policy do not
+        fight over the same /dev/video node, which means get_observation() hands
+        back joint state and nothing else -- the policy would then raise "All
+        image features are missing from the batch". The caller supplies the
+        wrist frame from the stream it already owns.
         """
         self.reset()
         names = action_names or list(robot.action_features)
@@ -138,6 +146,15 @@ class PolicyRunner:
         for steps in range(1, max_steps + 1):
             t0 = time.perf_counter()
             obs = robot.get_observation()
+            if frames is not None:
+                extra = frames()
+                if not extra:
+                    # A dropped frame would raise inside the policy. Skip the
+                    # cycle and try again rather than killing the run.
+                    log.warning("no camera frame this cycle, skipping step %d", steps)
+                    time.sleep(period)
+                    continue
+                obs = {**obs, **extra}
             values = self.step(obs, task)
             action = {name: float(v) for name, v in zip(names, np.asarray(values).reshape(-1))}
             robot.send_action(action)

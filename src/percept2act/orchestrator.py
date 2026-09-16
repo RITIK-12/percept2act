@@ -93,8 +93,30 @@ class Orchestrator:
         )
         self.detector = detector or Detector(scn)
         self.detector.warmup()
-        self.camera = open_stream(scn, scn.require("cameras.detector_input"))
+        self.role = scn.require("cameras.detector_input")
+        self.camera = open_stream(scn, self.role)
         self.max_bricks = int(scn.require("runtime.max_bricks_per_run"))
+
+        # The robot is connected with cameras={} so the detector keeps exclusive
+        # use of the wrist camera. A policy executor still needs that image, so
+        # lend it this stream.
+        if hasattr(self.executor, "set_frame_source"):
+            self.executor.set_frame_source(self.policy_frames)
+
+    def policy_frames(self) -> dict[str, Any]:
+        """Wrist frame for the policy, in the colour order it was trained on.
+
+        LeRobot's cameras default to ColorMode.RGB, so the recorded episodes are
+        RGB while our streams are BGR. Skipping this conversion does not crash --
+        it silently feeds the policy inverted colours, which is far harder to
+        spot than a missing key.
+        """
+        import cv2
+
+        frame = self.camera.read()
+        if frame is None:
+            return {}
+        return {self.role: cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)}
 
     # -- PERCEIVE: waiting for a brick ----------------------------------------
 
