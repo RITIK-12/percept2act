@@ -82,6 +82,7 @@ class ReplayExecutor:
         self.fps = int(scn.require("policies.control_fps"))
         self.root = Path(scn.abs_path("replay.dataset_root"))
         self.ramp_seconds = float(scn.get("replay.ramp_seconds", 2.0))
+        self.step_hook = None
         self.episodes = episodes or dict(scn.get("replay.episodes") or {})
         if not self.episodes:
             raise ValueError(
@@ -131,9 +132,11 @@ class ReplayExecutor:
         log.info("  ramped into start pose in %d steps", ramp_steps)
 
         period = 1.0 / self.fps
-        for values in frames:
+        for step, values in enumerate(frames, 1):
             t0 = time.perf_counter()
             self.robot.send_action({n: float(v) for n, v in zip(names, values)})
+            if self.step_hook is not None:
+                self.step_hook(step, None)
             elapsed = time.perf_counter() - t0
             if elapsed < period:
                 time.sleep(period - elapsed)
@@ -162,6 +165,9 @@ class PolicyExecutor:
         self.max_steps = int(scn.require("policies.max_steps_per_stage"))
         # Set by the Orchestrator, which owns the camera. See set_frame_source.
         self.frame_source = None
+        # Optional per-control-step callback, so a UI can keep redrawing while
+        # the arm moves instead of freezing for the whole placement.
+        self.step_hook = None
         self.runner = self._build()
 
     def set_frame_source(self, fn) -> None:
@@ -201,11 +207,17 @@ class PolicyExecutor:
     def execute(self, brick_class: str, instruction: str) -> int:
         plate = self.scn.plate_for_class(brick_class)
         log.info("[policy] %r -> %s plate", instruction, plate)
+        def on_step(step, obs, action):
+            if self.step_hook is not None:
+                self.step_hook(step, obs)
+            return True
+
         return self.runner.run_until_done(
             robot=self.robot,
             task=instruction,
             max_steps=self.max_steps,
             frames=self.frame_source,
+            on_step=on_step,
         )
 
     def close(self) -> None:

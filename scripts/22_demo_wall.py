@@ -112,15 +112,23 @@ class SideCameras:
                 pass
 
 
-def compose(wrist, patch, crop, state, sides, side_roles, stats):
+def compose(wrist, crop, state, sides, side_roles, stats):
     """Build the three-camera wall with the status header."""
     main = panel(wrist, MAIN_W, MAIN_H, "WRIST  - detector + policy input")
+    v = state.get("verdict")
     if wrist is not None and crop:
+        # ONE box: the region Anomalib scores. Grey until classified, then
+        # tinted by verdict with the class named on the box itself.
         x0, y0, x1, y1 = crop
         sx, sy = MAIN_W / wrist.shape[1], MAIN_H / wrist.shape[0]
-        v = state.get("verdict")
+        a = (int(x0 * sx), int(y0 * sy))
+        b = (int(x1 * sx), int(y1 * sy))
         colour = GREY if v is None else (CORAL if v.verdict == "defective" else GREEN)
-        cv2.rectangle(main, (int(x0 * sx), int(y0 * sy)), (int(x1 * sx), int(y1 * sy)), colour, 2)
+        cv2.rectangle(main, a, b, colour, 2 if v is None else 3)
+        if v is not None:
+            cv2.rectangle(main, (a[0], a[1] - 24), (a[0] + 190, a[1]), colour, -1)
+            cv2.putText(main, f"{v.verdict.upper()}  {v.score:.3f}", (a[0] + 6, a[1] - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 2, cv2.LINE_AA)
 
     side = np.vstack([
         panel(sides.frames.get(r), SIDE_W, SIDE_H, r.upper() + "  - view only",
@@ -142,16 +150,7 @@ def compose(wrist, patch, crop, state, sides, side_roles, stats):
     else:
         label(head, stats, (12, 50), 0.48, GREY)
 
-    # Crop the detector actually sees, inset into the WRIST panel so the judged
-    # pixels are visible rather than implied. Bottom-left, clear of the side
-    # panels and of the crop rectangle.
-    out = np.vstack([head, body])
-    if patch is not None and patch.size:
-        t = cv2.resize(patch, (150, 150), interpolation=cv2.INTER_NEAREST)
-        cv2.rectangle(t, (0, 0), (149, 149), AMBER, 2)
-        label(t, "scored", (6, 18), 0.45, AMBER)
-        out[-160:-10, 10:160] = t
-    return out
+    return np.vstack([head, body])
 
 
 def main() -> int:
@@ -202,7 +201,7 @@ def main() -> int:
             state = {"status": "", "verdict": None}
 
             def draw(frame, patch=None, frac=0.0, run=0, need=0):
-                cv2.imshow(WIN, compose(frame, patch, crop, state, sides, side_roles, stats))
+                cv2.imshow(WIN, compose(frame, crop, state, sides, side_roles, stats))
                 if (cv2.waitKey(1) & 0xFF) == ord("q"):
                     raise KeyboardInterrupt
 
@@ -238,7 +237,27 @@ def main() -> int:
 
                 state["status"] = f"ACT - SmolVLA placing in the {plate} plate"
                 refresh()
-                steps = orch.place(brick_class)
+
+                # Redraw from inside the control loop. The policy loop blocks the
+                # main thread for the whole placement, so without this the feed
+                # freezes on the last pre-motion frame -- exactly when the arm is
+                # the thing worth watching. obs already carries the wrist frame
+                # the policy just used (RGB), so this costs no extra camera read.
+                def on_step(step, obs):
+                    f = None
+                    if obs is not None and isinstance(obs.get(used), np.ndarray):
+                        f = cv2.cvtColor(obs[used], cv2.COLOR_RGB2BGR)
+                    elif step % 3 == 0:
+                        f = orch.camera.read()   # replay gives no obs
+                    if f is not None:
+                        state["status"] = f"ACT - placing in the {plate} plate   step {step}"
+                        draw(f)
+
+                executor.step_hook = on_step
+                try:
+                    steps = orch.place(brick_class)
+                finally:
+                    executor.step_hook = None
                 sorted_count += 1
                 print(f"  done in {steps} steps  ({sorted_count} sorted)")
 
