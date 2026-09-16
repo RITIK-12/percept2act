@@ -87,6 +87,24 @@ localizes well.
 | PatchCore | GPU (Arc) | 5.41 ms | 4.85 ms | 6.82 ms | 184.9 /s |
 | PatchCore | CPU | 84.20 ms | 83.86 ms | 89.87 ms | 11.9 /s |
 
+### SmolVLA policy, Arc iGPU (torch-xpu)
+
+60 control steps after warm-up, chunk size `n_action_steps=50`:
+
+| | n | mean |
+|---|---|---|
+| queue drain (no VLM) | 58 | **2.24 ms** |
+| VLM forward | 2 | **176.0 ms** |
+| overall | 60 | 8.0 ms |
+
+The 30 Hz control budget is 33.3 ms per step. SmolVLA predicts a *chunk* of 50
+actions, so the ~500 M parameter VLM runs once per 1.7 s of motion and the other
+49 steps are a queue pop costing ~2 ms. Mean cost is a quarter of budget; the
+visible cost is one ~143 ms stall per chunk boundary, not a sustained overrun.
+
+This is the argument for keeping the iGPU free for the policy: it is the only
+stage with a real throughput requirement.
+
 ### Why the detector runs on the NPU even though the GPU is ~10× faster
 
 This is the interesting part of the placement story, and it is a deliberate

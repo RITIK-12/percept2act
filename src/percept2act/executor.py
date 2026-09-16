@@ -182,6 +182,8 @@ class PolicyExecutor:
             policy_type=str(self.scn.require("policies.stage2_sort.policy")),
             device="xpu" if self.device in ("GPU", "XPU") else "cpu",
             fps=int(self.scn.require("policies.control_fps")),
+            # The dataset defines the state-vector ordering the policy expects.
+            dataset_root=str(self.scn.abs_path("replay.dataset_root")),
         )
 
     def _find_checkpoint(self) -> Path:
