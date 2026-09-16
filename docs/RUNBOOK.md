@@ -45,7 +45,10 @@ removes.
 | `11_benchmark.py` | device sweep + score separation | |
 | `12_demo.py` | **the live demo** | |
 | `13_start_studio.sh` | Physical AI Studio backend / ui | |
-| `14_train_vla.sh` | fine-tune SmolVLA | |
+| `14_train_vla.sh` | fine-tune SmolVLA via `lerobot-train` | torch only |
+| `15_studio_record.sh` | record through Studio + verify | |
+| `16_studio_train.sh` | fine-tune SmolVLA via `physicalai fit` | exportable |
+| `17_export_policy.sh` | export the policy to OpenVINO IR | needs 16 |
 
 ---
 
@@ -108,6 +111,25 @@ Then swap one flag:
 ```bash
 python scripts/12_demo.py --executor policy
 ```
+
+### Two training paths, and why it matters
+
+| | checkpoint | runs in |
+|---|---|---|
+| `14_train_vla.sh` (`lerobot-train`) | `pretrained_model/model.safetensors` | torch-xpu only |
+| `16_studio_train.sh` (`physicalai fit`) | Lightning `.ckpt` | torch **or** OpenVINO |
+
+`physicalai export` loads via Lightning's `load_from_checkpoint`, so only the
+second format can be exported. Train through Studio if you want the policy on
+OpenVINO rather than torch:
+
+```bash
+bash scripts/16_studio_train.sh && bash scripts/17_export_policy.sh
+```
+
+SmolVLA's OpenVINO export includes the tokenizer, so the instruction string is
+tokenized by OpenVINO too — the whole Anomalib → instruction → policy seam runs
+on OpenVINO runtime.
 
 ---
 

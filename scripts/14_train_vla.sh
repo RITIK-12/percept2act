@@ -111,4 +111,10 @@ fi
 
 echo
 echo "Done. Checkpoints in $OUTPUT_DIR"
-echo "Next: export to OpenVINO ->  bash scripts/08_export_policy.sh $WHICH"
+echo
+echo "This writes a LeRobot-format checkpoint, which runs in torch:"
+echo "    python scripts/12_demo.py --executor policy"
+echo
+echo "It CANNOT be exported to OpenVINO -- physicalai export wants a Lightning"
+echo "checkpoint. For that, train through Studio instead:"
+echo "    bash scripts/16_studio_train.sh && bash scripts/17_export_policy.sh"
