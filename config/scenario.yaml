@@ -138,7 +138,10 @@ detector:
   normals_dir: datasets/v2/good
   defects_dir: datasets/v2/defective   # threshold validation only, never fitted
   holdout_dir: datasets/v2_holdout     # never fitted; see 11_benchmark --holdout
-  export_dir: experiments/detector
+  # v3: fit on 90 normals / 100 defects captured under demo-day lighting.
+  # v2 is preserved at experiments/detector -- to roll back, set export_dir
+  # to that and restore threshold 0.4142 / uncertainty_band 0.012.
+  export_dir: experiments/detector_v3
 
 # ---------------------------------------------------------------------------
 # Policies — trained in Physical AI Studio, exported to OpenVINO IR.
