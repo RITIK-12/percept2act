@@ -45,15 +45,15 @@ if pgrep -fa "lerobot-train|physicalai fit" >/dev/null 2>&1; then
 fi
 
 echo -n "Studio backend : "
-curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 5 http://127.0.0.1:8000/docs \
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 5 http://127.0.0.1:7860/docs \
   2>/dev/null || echo "DOWN -- run: bash scripts/13_start_studio.sh backend"
 echo -n "Studio UI      : "
-curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 5 http://127.0.0.1:5173 \
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 5 http://127.0.0.1:3000 \
   2>/dev/null || echo "DOWN -- run: bash scripts/13_start_studio.sh ui"
 echo
 
 cat <<EOF
-Open http://localhost:5173
+Open http://localhost:3000
 
 Point the project at this dataset so new episodes append to the existing 30:
 
