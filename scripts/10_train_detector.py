@@ -38,13 +38,7 @@ def count_images(d: Path) -> int:
     return len(list(d.glob("**/*.png"))) + len(list(d.glob("**/*.jpg"))) if d.exists() else 0
 
 
-def brick_fraction(img) -> float:
-    """Fraction of the crop that looks like a saturated brick rather than bare mat."""
-    import cv2
-
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    s, v = hsv[..., 1], hsv[..., 2]
-    return float(((s > 70) & (v > 60)).mean())
+from percept2act.cameras import brick_fraction  # noqa: E402
 
 
 def quarantine_empty(d: Path, min_fraction: float = 0.02) -> int:

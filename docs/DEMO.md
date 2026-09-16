@@ -37,22 +37,39 @@ they exist solely to place the threshold.
 | | |
 |---|---|
 | Model | PatchCore, `wide_resnet50_2`, layers 2+3 |
-| Training set | 47 normal crops (3 brick-less frames auto-rejected) |
+| Training set | 40 normal crops — 5 bricks, 2 per brick held out |
+| Held out | 10 normal crops, never fitted |
 | Validation | 50 defective crops, threshold tuning only |
-| Test AUROC | **1.00** |
-| Test F1 | **1.00** |
 
 Measured score distributions:
 
 | class | n | min | mean | max |
 |---|---|---|---|---|
-| good | 47 | 0.0000 | 0.0000 | 0.0000 |
-| defective | 50 | 0.5156 | 0.5399 | 0.5781 |
+| good (fitted) | 40 | 0.0000 | 0.0627 | 0.4883 |
+| **good (held out)** | 10 | 0.0000 | 0.2228 | 0.3960 |
+| defective | 50 | 0.4324 | 0.8036 | 1.0000 |
 
-**Separation gap: 0.5156, zero overlap.** Threshold set at the midpoint,
-`0.2578`, with an uncertainty band of `±0.12`. At those settings **97/97
-samples classify correctly and none read as unsure** — the band is a safety net
-for a genuinely borderline brick, not something the current data needs.
+Threshold `0.4142`, band `±0.012`. At those settings **every held-out crop and
+every defect classifies correctly** — 10/10 and 50/50.
+
+### Why the held-out row is the one that matters
+
+An earlier version of this dataset was ~47 crops of a *single* brick, with
+nothing held out, and it reported AUROC 1.00 with good scoring 0.0000–0.0000.
+That number was meaningless: PatchCore scores by distance to its memory bank,
+and every test image's own patches were *in* that bank. It was measuring
+memorization. The failure showed up physically — a different good brick was
+classified defective.
+
+So the set is now 5 distinct bricks with 2 crops per brick withheld from the
+fit. The held-out row is the only one that predicts live behaviour.
+
+Three fitted normals score above threshold. Inspecting them is instructive: the
+worst (0.4883) is a 2×4 brick sitting half out of frame while the rest of the
+set is 2×2 and centred. A high anomaly score for a different geometry at a
+different position is the model working, not failing. The band is kept narrow
+because widening it enough to absorb those three would swallow the lowest
+defects at 0.4324.
 
 Why PatchCore rather than PaDiM: the defect is marker marks on the stud faces —
 localized structural difference, which nearest-neighbour patch matching

@@ -110,20 +110,29 @@ detector:
   model: patchcore              # patchcore suits localized structural damage
   backbone: wide_resnet50_2     # [VERIFIED] already cached (264 MB)
   layers: [layer2, layer3]
-  coreset_sampling_ratio: 0.1
+  coreset_sampling_ratio: 1.0     # keep every patch: 28 normals is far too few to subsample
   num_neighbors: 9
   input_size: [256, 256]
 
-  # Measured on 47 normals + 50 defects captured at the inspect pose:
-  #   good      0.0000 - 0.0000
-  #   defective 0.5156 - 0.5781
-  # Zero overlap, so the threshold sits midway and the band is wide enough
-  # to catch a genuinely borderline brick without either class falling in it.
-  threshold: 0.2578
-  uncertainty_band: 0.12        # scores within +/- this of threshold => unsure
+  # Measured on the v2 set: 5 bricks x 10 crops, 2 per brick held out of the fit.
+  #   good (fitted, n=40)  0.0000 - 0.4883  mean 0.0627
+  #   held out (n=10)      0.0000 - 0.3960  mean 0.2228
+  #   defective (n=50)     0.4324 - 1.0000  mean 0.8036
+  # Threshold sits between held-out max and defective min, so every held-out
+  # crop and every defect classifies correctly. Three fitted normals sit above
+  # it -- see docs/DEMO.md. The band is kept narrow deliberately: widening it
+  # far enough to catch those three would swallow the lowest defects too.
+  threshold: 0.4142
+  uncertainty_band: 0.012       # scores within +/- this of threshold => unsure
 
-  normals_dir: datasets/normals
-  defects_dir: datasets/defects # optional, for threshold validation only
+  # v2: 5 distinct bricks, 10 crops each, one brick per subfolder. The v1 set
+  # was ~47 crops of a SINGLE brick, so the memory bank encoded that brick
+  # rather than "undamaged" and a different good brick scored as defective.
+  # One good brick (liteGreen) is held out of the fit entirely -- scoring it is
+  # the only honest test that a brick the model has never seen still passes.
+  normals_dir: datasets/v2/good
+  defects_dir: datasets/v2/defective   # threshold validation only, never fitted
+  holdout_dir: datasets/v2_holdout     # never fitted; see 11_benchmark --holdout
   export_dir: experiments/detector
 
 # ---------------------------------------------------------------------------

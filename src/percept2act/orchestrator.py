@@ -99,17 +99,10 @@ class Orchestrator:
     # -- PERCEIVE: waiting for a brick ----------------------------------------
 
     def brick_fraction(self, patch: Any) -> float:
-        """Fraction of the crop that looks like a saturated brick, not bare mat.
+        """Fraction of the crop occupied by a brick. See cameras.brick_fraction."""
+        from percept2act.cameras import brick_fraction
 
-        Colour saturation rather than brightness: the mat is dark and matte, the
-        bricks are vividly coloured, so this separates them regardless of how
-        the venue lighting drifts.
-        """
-        import cv2
-
-        hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
-        s, v = hsv[..., 1], hsv[..., 2]
-        return float(((s > 70) & (v > 60)).mean())
+        return brick_fraction(patch)
 
     def wait_for_brick(
         self,

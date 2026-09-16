@@ -126,3 +126,23 @@ def sharpness(bgr: np.ndarray) -> float:
     """Variance of the Laplacian. Higher is sharper; use it to focus a lens."""
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
+def brick_fraction(patch) -> float:
+    """Fraction of a crop that looks like a brick rather than bare mat.
+
+    Brightness, not colour saturation. The mat is dark green and matte; every
+    brick we sort is brighter than it regardless of hue. An earlier version
+    tested `(s > 70) & (v > 60)`, which silently rejected the pale pink and
+    yellow bricks -- their saturation is low even though they are plainly
+    visible -- and quarantined two entire bricks out of the training set.
+
+    Measured over 110 crops containing a brick, across 6 colours:
+        v > 100   floor 0.0397   (every brick, every colour)
+        s/v combo floor 0.0041   (pink and yellow indistinguishable from mat)
+    Bare mat sits around 0.004, so the 0.025 gate has margin on both sides.
+    """
+    import cv2
+
+    v = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)[..., 2]
+    return float((v > 100).mean())

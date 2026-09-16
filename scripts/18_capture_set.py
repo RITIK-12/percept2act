@@ -53,15 +53,7 @@ from percept2act.cameras import open_stream  # noqa: E402
 from percept2act.config import Scenario  # noqa: E402
 
 
-def brick_fraction(patch) -> float:
-    """Fraction of the crop that looks like a saturated brick rather than mat.
-
-    Same measure the live demo gates on, shown here so you can confirm the brick
-    actually sits inside the crop before spending ten captures on it.
-    """
-    hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
-    s, v = hsv[..., 1], hsv[..., 2]
-    return float(((s > 70) & (v > 60)).mean())
+from percept2act.cameras import brick_fraction  # noqa: E402
 
 
 def park_arm(scn: Scenario, settle: float):
