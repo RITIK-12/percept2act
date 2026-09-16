@@ -35,7 +35,7 @@ from percept2act.config import Scenario  # noqa: E402
 
 
 def count_images(d: Path) -> int:
-    return len(list(d.glob("*.png"))) + len(list(d.glob("*.jpg"))) if d.exists() else 0
+    return len(list(d.glob("**/*.png"))) + len(list(d.glob("**/*.jpg"))) if d.exists() else 0
 
 
 def brick_fraction(img) -> float:
@@ -61,7 +61,7 @@ def quarantine_empty(d: Path, min_fraction: float = 0.02) -> int:
         return 0
     rejects = d.parent / f"{d.name}_rejected"
     moved = 0
-    for p in sorted(list(d.glob("*.png")) + list(d.glob("*.jpg"))):
+    for p in sorted(list(d.glob("**/*.png")) + list(d.glob("**/*.jpg"))):
         img = cv2.imread(str(p))
         if img is None or brick_fraction(img) < min_fraction:
             rejects.mkdir(parents=True, exist_ok=True)

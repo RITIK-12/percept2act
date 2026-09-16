@@ -37,7 +37,7 @@ from percept2act.detector import Detector  # noqa: E402
 
 def load_set(d: Path) -> list[np.ndarray]:
     imgs = []
-    for p in sorted(list(d.glob("*.png")) + list(d.glob("*.jpg"))):
+    for p in sorted(list(d.glob("**/*.png")) + list(d.glob("**/*.jpg"))):
         img = cv2.imread(str(p))
         if img is not None:
             imgs.append(img)
@@ -98,10 +98,16 @@ def bench_devices(scn: Scenario, iters: int) -> None:
             )
 
 
-def check_separation(scn: Scenario) -> None:
+def check_separation(scn: Scenario, extra: str | None = None) -> None:
     normals = load_set(REPO / str(scn.require("detector.normals_dir")))
     defects = load_set(REPO / str(scn.require("detector.defects_dir")))
-    print(f"\nscoring {len(normals)} normals and {len(defects)} defects\n")
+    # A directory of GOOD bricks that were never fitted. Normals are scored
+    # against a memory bank containing their own patches, so they always read
+    # ~0.0000 -- that measures memorization, not generalization. The held-out
+    # brick is the only honest signal that a NEW good brick will pass.
+    holdout = load_set(REPO / extra) if extra else []
+    print(f"\nscoring {len(normals)} normals and {len(defects)} defects"
+          + (f" and {len(holdout)} held-out" if holdout else "") + "\n")
     if not normals:
         print("no normals captured yet -- run scripts/09_capture_bricks.py")
         return
@@ -110,6 +116,7 @@ def check_separation(scn: Scenario) -> None:
     det.warmup()
     good = [det.score(i).score for i in normals]
     bad = [det.score(i).score for i in defects] if defects else []
+    held = [det.score(i).score for i in holdout] if holdout else []
 
     def describe(name: str, xs: list[float]) -> None:
         if not xs:
@@ -120,7 +127,19 @@ def check_separation(scn: Scenario) -> None:
         )
 
     describe("good", good)
+    describe("held-out", held)
     describe("defective", bad)
+
+    if held:
+        # This is the number that actually predicts demo-day behaviour.
+        if max(held) < det.threshold:
+            print(f"\n  held-out brick PASSES: max {max(held):.4f} < threshold {det.threshold:.4f}")
+            print("  The detector generalizes to a brick it never saw.")
+        else:
+            print(f"\n  !! held-out brick FAILS: max {max(held):.4f} >= threshold {det.threshold:.4f}")
+            print("  A good brick it never saw reads as defective -- the bank still")
+            print("  encodes specific bricks, not 'undamaged'. Capture more brick")
+            print("  variety, or raise detector.coreset_sampling_ratio from 0.1.")
 
     print(f"\n  current threshold : {det.threshold:.4f}")
     print(f"  uncertainty band  : +/-{det.band:.4f}")
@@ -158,12 +177,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--iters", type=int, default=50)
     ap.add_argument("--detector-only", action="store_true", help="skip device sweep")
+    ap.add_argument("--holdout", default=None, metavar="DIR",
+                    help="score a directory of good bricks that were NOT fitted, "
+                         "e.g. datasets/v2_holdout")
     args = ap.parse_args()
 
     scn = Scenario.load()
     if not args.detector_only:
         bench_devices(scn, args.iters)
-    check_separation(scn)
+    check_separation(scn, args.holdout)
 
     print(
         "\nRecord the table above in docs/DEMO.md. The rubric asks for architecture,\n"
