@@ -149,7 +149,10 @@ policies:
     base_checkpoint: lerobot/smolvla_base
     dataset_repo_id: percept2act/stage2_clean
     episodes_per_instruction: 30
-    export_dir: experiments/smolvla_sort
+    # Must match what 14_train_vla.sh wrote, which names the output after the
+    # dataset. Left on smolvla_sort, the demo silently loads the OLD policy
+    # trained on the drifting 30-episode set.
+    export_dir: experiments/smolvla_stage2_clean
 
   # Per-step action-chunk execution budget.
   max_steps_per_stage: 400
