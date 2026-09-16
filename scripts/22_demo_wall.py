@@ -18,7 +18,7 @@ Usage:
   python scripts/22_demo_wall.py --executor stub      # perception only
   python scripts/22_demo_wall.py --bricks 5
 
-q or Ctrl-C to stop. Run in the `hack_lerobot` env.
+Fullscreen by default; f toggles it, q or Ctrl-C stops. Run in the `hack_lerobot` env.
 """
 
 from __future__ import annotations
@@ -42,9 +42,22 @@ from percept2act.executor import build_executor  # noqa: E402
 from percept2act.orchestrator import Orchestrator  # noqa: E402
 
 WIN = "percept2act - Perceive / Detect / Reason / Act"
-MAIN_W, MAIN_H = 640, 480
-SIDE_W, SIDE_H = 320, 240
-HEADER = 64
+# Base layout; scaled by --scale so fullscreen renders natively instead of
+# letting the window manager upscale a 960px image.
+BASE_MAIN = (640, 480)
+BASE_SIDE = (320, 240)
+BASE_HEADER = 64
+MAIN_W, MAIN_H = BASE_MAIN
+SIDE_W, SIDE_H = BASE_SIDE
+HEADER = BASE_HEADER
+
+
+def set_scale(k: float) -> None:
+    """Resize the whole layout, keeping proportions."""
+    global MAIN_W, MAIN_H, SIDE_W, SIDE_H, HEADER
+    MAIN_W, MAIN_H = int(BASE_MAIN[0] * k), int(BASE_MAIN[1] * k)
+    SIDE_W, SIDE_H = int(BASE_SIDE[0] * k), int(BASE_SIDE[1] * k)
+    HEADER = int(BASE_HEADER * k)
 
 WHITE = (255, 255, 255)
 GREY = (150, 150, 150)
@@ -126,9 +139,13 @@ def compose(wrist, crop, state, sides, side_roles, stats):
         colour = GREY if v is None else (CORAL if v.verdict == "defective" else GREEN)
         cv2.rectangle(main, a, b, colour, 2 if v is None else 3)
         if v is not None:
-            cv2.rectangle(main, (a[0], a[1] - 24), (a[0] + 190, a[1]), colour, -1)
-            cv2.putText(main, f"{v.verdict.upper()}  {v.score:.3f}", (a[0] + 6, a[1] - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (20, 20, 20), 2, cv2.LINE_AA)
+            k = MAIN_W / BASE_MAIN[0]
+            bh, bw = int(24 * k), int(190 * k)
+            cv2.rectangle(main, (a[0], a[1] - bh), (a[0] + bw, a[1]), colour, -1)
+            cv2.putText(main, f"{v.verdict.upper()}  {v.score:.3f}",
+                        (a[0] + int(6 * k), a[1] - int(6 * k)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55 * k, (20, 20, 20),
+                        max(1, int(2 * k)), cv2.LINE_AA)
 
     side = np.vstack([
         panel(sides.frames.get(r), SIDE_W, SIDE_H, r.upper() + "  - view only",
@@ -141,14 +158,13 @@ def compose(wrist, crop, state, sides, side_roles, stats):
     body = np.hstack([main, side[:MAIN_H]])
     head = np.full((HEADER, body.shape[1], 3), 22, np.uint8)
 
-    v = state.get("verdict")
-    label(head, state.get("status", ""), (12, 25), 0.62,
-          GREY if v is None else (CORAL if v.verdict == "defective" else GREEN))
-    if v is not None:
-        label(head, f"score {v.score:.4f}   thr {v.threshold:.4f}   {v.device}  {v.latency_ms:.0f}ms",
-              (12, 50), 0.48, WHITE)
-    else:
-        label(head, stats, (12, 50), 0.48, GREY)
+    k = MAIN_W / BASE_MAIN[0]
+    label(head, state.get("status", ""), (int(12 * k), int(25 * k)), 0.62 * k,
+          GREY if v is None else (CORAL if v.verdict == "defective" else GREEN), max(1, int(k)))
+    detail = (f"score {v.score:.4f}   thr {v.threshold:.4f}   {v.device}  {v.latency_ms:.0f}ms"
+              if v is not None else stats)
+    label(head, detail, (int(12 * k), int(50 * k)), 0.48 * k,
+          WHITE if v is not None else GREY, max(1, int(k)))
 
     return np.vstack([head, body])
 
@@ -160,11 +176,20 @@ def main() -> int:
     ap.add_argument("--delay", type=float, default=2.0, help="hold the verdict before moving")
     ap.add_argument("--settle", type=int, default=12, help="steady frames before acting")
     ap.add_argument("--device", default=None, help="override the detector device")
+    ap.add_argument("--windowed", action="store_true", help="do not go fullscreen")
+    ap.add_argument("--scale", type=float, default=1.5,
+                    help="render scale; 1.5 fills a 1080p screen natively (default 1.5)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S")
     scn = Scenario.load()
+    set_scale(args.scale)
+
+    # WINDOW_NORMAL is required for the fullscreen property to take effect.
+    cv2.namedWindow(WIN, cv2.WINDOW_NORMAL)
+    if not args.windowed:
+        cv2.setWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     robot = None
     if args.executor != "stub":
@@ -202,8 +227,15 @@ def main() -> int:
 
             def draw(frame, patch=None, frac=0.0, run=0, need=0):
                 cv2.imshow(WIN, compose(frame, crop, state, sides, side_roles, stats))
-                if (cv2.waitKey(1) & 0xFF) == ord("q"):
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
                     raise KeyboardInterrupt
+                if key == ord("f"):
+                    full = cv2.getWindowProperty(WIN, cv2.WND_PROP_FULLSCREEN)
+                    cv2.setWindowProperty(
+                        WIN, cv2.WND_PROP_FULLSCREEN,
+                        cv2.WINDOW_NORMAL if full == cv2.WINDOW_FULLSCREEN else cv2.WINDOW_FULLSCREEN,
+                    )
 
             def refresh():
                 f = orch.camera.read()
