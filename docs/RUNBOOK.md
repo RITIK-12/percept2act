@@ -49,6 +49,7 @@ removes.
 | `15_studio_record.sh` | record through Studio + verify | |
 | `16_studio_train.sh` | fine-tune SmolVLA via `physicalai fit` | exportable |
 | `17_export_policy.sh` | export the policy to OpenVINO IR | needs 16 |
+| `19_record_clean.py` | record with a fixed start pose | **use this to re-record** |
 
 ---
 

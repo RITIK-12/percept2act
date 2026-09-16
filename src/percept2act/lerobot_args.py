@@ -72,3 +72,38 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def camera_objects(scn: Scenario, roles: list[str]) -> dict:
+    """Real camera config objects, for the Python API rather than the CLI.
+
+    camera_config() above builds plain dicts because lerobot-record takes them
+    as a JSON string on the command line. Constructing a robot in-process needs
+    the actual dataclasses instead.
+    """
+    from pathlib import Path
+
+    out: dict = {}
+    for role in roles:
+        kind = scn.require(f"cameras.{role}.kind")
+        common = {
+            "width": scn.require(f"cameras.{role}.width"),
+            "height": scn.require(f"cameras.{role}.height"),
+            "fps": scn.require(f"cameras.{role}.fps"),
+        }
+        if kind == "opencv":
+            from lerobot.cameras.opencv import OpenCVCameraConfig
+
+            # index_or_path is `int | Path`, never a str.
+            out[role] = OpenCVCameraConfig(
+                index_or_path=Path(str(scn.require(f"cameras.{role}.index_or_path"))),
+                **common,
+            )
+        else:
+            from lerobot.cameras.realsense import RealSenseCameraConfig
+
+            out[role] = RealSenseCameraConfig(
+                serial_number_or_name=str(scn.require(f"cameras.{role}.serial")),
+                **common,
+            )
+    return out
