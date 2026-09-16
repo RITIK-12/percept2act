@@ -114,21 +114,24 @@ detector:
   num_neighbors: 9
   input_size: [256, 256]
 
-  # Measured on the v2 set: 5 bricks x 10 crops, 2 per brick held out of the fit.
-  #   good (fitted, n=40)  0.0000 - 0.4883  mean 0.0627
-  #   held out (n=10)      0.0000 - 0.3960  mean 0.2228
-  #   defective (n=50)     0.4324 - 1.0000  mean 0.8036
-  # Threshold sits between held-out max and defective min, so every held-out
-  # crop and every defect classifies correctly. Three fitted normals sit above
-  # it -- see docs/DEMO.md. The band is kept narrow deliberately: widening it
-  # far enough to catch those three would swallow the lowest defects too.
+  # v3, measured on 90 fitted normals / 90 tuning defects, with 10 of EACH
+  # class held out of every fit and tuning decision:
+  #   good fitted        0.0000 - 0.5659  mean 0.0562
+  #   good HELD OUT      0.1061 - 0.4358  mean 0.2363
+  #   defective          0.4468 - 1.0000  mean 0.7815
+  #   defective HELD OUT 0.5806 - 1.0000  mean 0.8010
+  # Threshold sits midway between the two HELD-OUT distributions (0.4358 and
+  # 0.5806), not between the fitted ones -- the fitted defect floor of 0.4468
+  # left only 0.011 of room and is what made good bricks read defective live.
+  # Held-out margin is now 0.145, and borderline scores route to `unsure` ->
+  # re-inspect -> defective, which is the safe direction.
   # Frames scored per brick; the verdict is the MEDIAN of these. One frame can
   # be caught with glare on a stud or mid-autoexposure, which is enough to flip
   # a borderline brick. Median rejects those; a mean would not.
   vote_frames: 12
 
-  threshold: 0.4142
-  uncertainty_band: 0.012       # scores within +/- this of threshold => unsure
+  threshold: 0.5082
+  uncertainty_band: 0.048       # scores within +/- this of threshold => unsure
 
   # v2: 5 distinct bricks, 10 crops each, one brick per subfolder. The v1 set
   # was ~47 crops of a SINGLE brick, so the memory bank encoded that brick
