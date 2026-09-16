@@ -122,6 +122,11 @@ detector:
   # crop and every defect classifies correctly. Three fitted normals sit above
   # it -- see docs/DEMO.md. The band is kept narrow deliberately: widening it
   # far enough to catch those three would swallow the lowest defects too.
+  # Frames scored per brick; the verdict is the MEDIAN of these. One frame can
+  # be caught with glare on a stud or mid-autoexposure, which is enough to flip
+  # a borderline brick. Median rejects those; a mean would not.
+  vote_frames: 12
+
   threshold: 0.4142
   uncertainty_band: 0.012       # scores within +/- this of threshold => unsure
 

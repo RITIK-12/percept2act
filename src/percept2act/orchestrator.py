@@ -180,13 +180,50 @@ class Orchestrator:
             ramp_to(self.robot, pose, float(self.scn.get("replay.ramp_seconds", 2.0)))
 
     def inspect(self) -> tuple[Verdict, Any]:
-        """Grab a frame and score the brick at the inspection crop."""
-        with self.latency.measure("perceive.capture", "CPU"):
-            _, patch = grab_crop(self.scn, self.camera)
-        with self.latency.measure("detect.patchcore", self.detector.device) as m:
-            verdict = self.detector.score(patch)
-        m["score"] = round(verdict.score, 5)
+        """Score the brick over several frames and decide on the median.
+
+        A single frame is a poor basis for the verdict: a glare highlight on a
+        stud, a rolling-shutter artefact or an autoexposure adjustment moves the
+        score enough to flip a brick sitting near the threshold. Scoring N
+        consecutive frames and taking the MEDIAN discards those outliers -- a
+        mean would let one bad frame drag the decision across the line.
+
+        The detector costs ~51 ms on the NPU, so a 12-frame vote is well under a
+        second and happens once per brick, not per control step.
+        """
+        import statistics
+
+        n = max(1, int(self.scn.get("detector.vote_frames", 12)))
+        scores: list[float] = []
+        patch = None
+
+        t0 = time.perf_counter()
+        with self.latency.measure("detect.patchcore_vote", self.detector.device) as m:
+            for _ in range(n):
+                _, patch = grab_crop(self.scn, self.camera)
+                scores.append(self.detector.score(patch).score)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+
+        median = float(statistics.median(scores))
+        verdict = Verdict(
+            score=median,
+            verdict=self.detector.classify(median),
+            threshold=self.detector.threshold,
+            band=self.detector.band,
+            device=self.detector.device,
+            latency_ms=elapsed_ms / n,
+        )
+        m["score"] = round(median, 5)
         m["verdict"] = verdict.verdict
+        m["frames"] = n
+        m["spread"] = round(max(scores) - min(scores), 5)
+
+        # A wide spread means the frames disagree; worth seeing in the log even
+        # when the median lands confidently on one side.
+        log.info(
+            "vote over %d frames: median %.4f (min %.4f max %.4f) -> %s",
+            n, median, min(scores), max(scores), verdict.verdict,
+        )
         return verdict, patch
 
     def resolve_verdict(self) -> tuple[Verdict, int]:

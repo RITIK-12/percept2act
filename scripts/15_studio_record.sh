@@ -17,7 +17,10 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
-DATASET="$REPO/datasets/stage2_sort"
+DATASET="$REPO/$("$PY" -c "
+import sys; sys.path.insert(0, '$REPO/src')
+from percept2act.config import Scenario
+print(Scenario.load().require('replay.dataset_root'))")"
 
 read_instruction() {
   "$PY" -c "

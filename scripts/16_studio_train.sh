@@ -25,8 +25,16 @@ PY="$HOME/miniforge3/envs/hack_lerobot/bin/python"
 STUDIO_BIN="$HOME/physical-ai-studio/application/backend/.venv/bin/physicalai"
 
 CONFIG="$REPO/config/physicalai_smolvla.yaml"
-DATASET_ROOT="$REPO/datasets/stage2_sort"
 OUTPUT_DIR="$REPO/experiments/smolvla_studio"
+
+# Read from config so pointing at a freshly recorded dataset is one YAML edit,
+# not an edit in every script that touches it.
+read -r REPO_ID DATASET_REL <<<"$("$PY" -c "
+import sys; sys.path.insert(0, '$REPO/src')
+from percept2act.config import Scenario
+s = Scenario.load()
+print(s.require('policies.stage2_sort.dataset_repo_id'), s.require('replay.dataset_root'))")"
+DATASET_ROOT="$REPO/$DATASET_REL"
 
 DRY=0
 ARGS=()
@@ -66,13 +74,14 @@ CMD=("$STUDIO_BIN" fit
   # Pinned absolutely so the run does not depend on how jsonargparse resolves
   # a relative path -- against cwd or against the config file.
   --data.init_args.root "$DATASET_ROOT"
+  --data.init_args.repo_id "$REPO_ID"
   --trainer.default_root_dir "$OUTPUT_DIR"
 )
 CMD+=("${ARGS[@]+"${ARGS[@]}"}")
 
 echo "=== training smolvla via Physical AI Studio ==="
 echo "  config  : $CONFIG"
-echo "  dataset : $DATASET_ROOT"
+echo "  dataset : $REPO_ID  ($DATASET_ROOT)"
 echo "  output  : $OUTPUT_DIR"
 printf '  command : '; printf '%q ' "${CMD[@]}"; echo
 echo
