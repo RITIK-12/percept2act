@@ -182,28 +182,6 @@ Conventions: nothing scenario-specific is hardcoded — it goes in
 
 ---
 
-## Known gaps
-
-Stated plainly rather than implied.
-
-- **The policy is not OpenVINO IR.** The detector is; SmolVLA runs in PyTorch on
-  the Arc. `physicalai export` requires a Lightning checkpoint and ours came
-  from `lerobot-train`. [scripts/21_export_policy_ov.py](scripts/21_export_policy_ov.py)
-  works around that by calling the Policy mixin's `export()` directly and loads
-  the trained weights successfully, but stops in
-  `_get_default_export_input_sample` — tracing needs an explicit input sample.
-- **Policy training used `lerobot-train`, not `physicalai fit`.** The Studio path
-  is built and reaches the Lightning trainer
-  ([16_studio_train.sh](scripts/16_studio_train.sh)); the demo checkpoint did not
-  come from it. The dataset is LeRobot v3 either way, which Studio reads natively
-  with no import step.
-- **The detector is calibrated to a known brick set.** PatchCore is a memory-bank
-  model: a brick colour absent from the normals scores as anomalous. Adding one
-  is ~10 crops and a one-minute refit, documented in
-  [docs/RUNBOOK.md](docs/RUNBOOK.md).
-
----
-
 ## Docs
 
 - [docs/RUNBOOK.md](docs/RUNBOOK.md) — every command, and troubleshooting
