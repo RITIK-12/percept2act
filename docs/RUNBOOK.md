@@ -98,6 +98,11 @@ bash scripts/07_verify_dataset.sh
 bash scripts/14_train_vla.sh --steps=8000
 ```
 
+Any flag passes through to `lerobot-train`. Batch size does not buy speed — the
+iGPU is compute-bound, so `--batch_size=16` roughly doubles per-step time and
+`bs16 x 4000` sees the same samples as `bs8 x 8000` in about the same wall
+clock. Cut `--steps` if you need it shorter.
+
 Then swap one flag:
 
 ```bash

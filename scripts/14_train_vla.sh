@@ -32,7 +32,6 @@ done
 WHICH=smolvla
 ROOT="datasets/stage2_sort"
 OUT="experiments/smolvla_sort"
-STEPS=20000
 REPO_ID="$("$PY" -c "
 import sys; sys.path.insert(0, 'src')
 from percept2act.config import Scenario
@@ -55,18 +54,11 @@ if [[ "$WHICH" == "smolvla" ]]; then
   echo
 fi
 
-# Drop our default --steps if the caller supplied their own, or lerobot-train
-# sees the flag twice.
-for a in "${ARGS[@]+"${ARGS[@]}"}"; do
-  [[ "$a" == --steps=* ]] && STEPS=""
-done
-
 CMD=(lerobot-train
   --dataset.repo_id="$REPO_ID"
   --dataset.root="$DATASET_ROOT"
   --policy.type="$WHICH"
   --output_dir="$OUTPUT_DIR"
-  ${STEPS:+--steps=$STEPS}
   --save_freq=2000
   --log_freq=100
   --policy.device=xpu          # Arc iGPU; use cpu if xpu errors out
@@ -75,6 +67,20 @@ CMD=(lerobot-train
   # will start. We only ever want a local checkpoint.
   --policy.push_to_hub=false
 )
+
+# Our defaults, applied only where the caller has not passed that flag already --
+# lerobot-train errors out if it sees the same flag twice.
+default() {
+  for a in "${ARGS[@]+"${ARGS[@]}"}"; do
+    [[ "$a" == "${1%%=*}="* ]] && return
+  done
+  CMD+=("$1")
+}
+default --steps=20000
+# LeRobot decodes every sample out of the episode MP4s, so the dataloader is
+# real CPU work. The stock 4 workers leave the iGPU waiting on 16 cores.
+default --num_workers=8
+
 # SmolVLA must start from the pretrained base, already in the HF cache.
 [[ "$WHICH" == "smolvla" ]] && CMD+=(--policy.pretrained_path=lerobot/smolvla_base)
 CMD+=("${ARGS[@]+"${ARGS[@]}"}")
